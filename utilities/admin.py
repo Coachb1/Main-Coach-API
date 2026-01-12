@@ -19,6 +19,10 @@ from commons.cache_utils import  reset_cache_with_prefix
 from users.models import ClientUserInfo
 from users.helpers import get_client_info_from_user_detail
 from tenants.admin import TenantAwareModelAdmin
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import BotQnA
+
 
 logger = logging.getLogger(__name__)
 
@@ -335,3 +339,120 @@ class LLMMappingModelsAdmin(admin.ModelAdmin):
     list_filter = ("llm_type",)
     search_fields = ("model_order",)
 
+
+
+
+@admin.register(BotQnA)
+class BotQnAAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for BotQnA.
+
+    Provides read-optimized views for feedback, fitment,
+    and initial QnA entries with safe JSON inspection.
+    """
+
+    # -----------------------------
+    # List View
+    # -----------------------------
+    list_display = (
+        "id",
+        "participant_id",
+        "bot_id",
+        "qna_type",
+        "sentiment",
+        "is_anonymous",
+        "created",
+    )
+
+    list_filter = (
+        "qna_type",
+        "is_positive",
+        "is_anonymous",
+        "created",
+    )
+
+    search_fields = (
+        "participant_id",
+        "bot_id",
+        "intake_summary",
+    )
+
+    ordering = ("-created",)
+    list_per_page = 50
+    date_hierarchy = "created"
+
+    # -----------------------------
+    # Detail View
+    # -----------------------------
+    readonly_fields = (
+        'uid',
+        "created",
+        "updated",
+        "formatted_participant_qna",
+        "formatted_fitment_score",
+    )
+
+    fieldsets = (
+        ("Basic Info", {
+            "fields": (
+                "participant_id",
+                "bot_id",
+                "qna_type",
+                "is_anonymous",
+            )
+        }),
+        ("Sentiment", {
+            "fields": (
+                "is_positive",
+            )
+        }),
+        ("QnA Data", {
+            "fields": (
+                "formatted_participant_qna",
+                "formatted_fitment_score",
+                "intake_summary",
+            )
+        }),
+        ("System", {
+            "fields": (
+                "tenant_id",
+                "created",
+                "updated",
+                'uid'
+            )
+        }),
+    )
+
+    # -----------------------------
+    # Custom Display Helpers
+    # -----------------------------
+    @admin.display(description="Sentiment", ordering="is_positive")
+    def sentiment(self, obj):
+        if obj.is_positive is None:
+            return "—"
+        return "Positive" if obj.is_positive else "Negative"
+
+    @admin.display(description="Participant QnA")
+    def formatted_participant_qna(self, obj):
+        if not obj.participant_qna:
+            return "—"
+        return format_html(
+            "<pre style='max-width:800px; white-space:pre-wrap;'>{}</pre>",
+            obj.participant_qna,
+        )
+
+    @admin.display(description="Fitment Score")
+    def formatted_fitment_score(self, obj):
+        if not obj.fitment_score:
+            return "—"
+        return format_html(
+            "<pre style='max-width:800px; white-space:pre-wrap;'>{}</pre>",
+            obj.fitment_score,
+        )
+
+    # -----------------------------
+    # Permissions
+    # -----------------------------
+    def has_delete_permission(self, request, obj=None):
+        # Prevent accidental data loss (soft-delete philosophy)
+        return False

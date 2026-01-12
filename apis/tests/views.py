@@ -3,9 +3,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from django.db.models import Max
 
 from apis.tests.filtersets import TestFilterSet
@@ -58,51 +60,11 @@ class TestViewSet(ApiViewSet,
                   mixins.RetrieveModelMixin,
                   mixins.UpdateModelMixin):
     """
-    This code defines a class called `TestViewSet` which is a viewset for handling API requests related to tests. It includes various methods for creating, retrieving, and manipulating test data.
+    ViewSet for managing Tests.
 
-    Example Usage:
-    - Create a new test
-    - Retrieve a specific test
-    - Perform various actions on a test, such as generating flash cards, getting a mindmap, generating a report, etc.
-
-    Main functionalities:
-    - Create a new test
-    - Retrieve a specific test
-    - Perform various actions on a test, such as generating flash cards, getting a mindmap, generating a report, etc.
-
-    Methods:
-    - get_queryset(): Returns the queryset of tests filtered by the tenant ID.
-    - create(): Creates a new test based on the provided data.
-    - get_test_flash_cards(): Retrieves the flash cards for a specific test.
-    - get_test_mindmap(): Retrieves the mindmap for a specific test.
-    - get_test_report_pdf_view(): Retrieves the report PDF for a specific test.
-    - get_test_flash_cards_data(): Retrieves the flash card data for a specific test.
-    - get_test_mindmap_data(): Retrieves the mindmap data for a specific test.
-    - get_test_report_frontend(): Retrieves the report data for a specific test.
-    - get_learner_path(): Retrieves the learner path for a specific user and objective.
-    - generate_test_from_objective(): Generates a test based on a specific objective.
-    - get_tenant_special_case_test_category(): Retrieves the special case test categories for a specific tenant.
-    - get_tenant_special_case_test(): Retrieves the special case tests for a specific tenant and category.
-    - get_test_previlage(): Retrieves the test privilege for a specific user.
-    - get_selection_options(): Retrieves the selection options for filtering tests.
-    - get_tests_by_choice(): Retrieves tests based on the provided filter choices.
-    - check_duplicate_response(): Checks if a duplicate response exists for a specific question and test attempt session.
-    - set_admin_controls(): Updates the admin controls for a specific tenant.
-    - get_test_scanrio_case(): Retrieves the test scenario cases.
-    - user_att_prmpt_updation(): Updates the user attribute prompts.
-    - get_normal_test_csv(): Retrieves the CSV data for normal tests.
-    - get_group_discussion_test_csv(): Retrieves the CSV data for group discussion tests.
-    - get_free_type_test(): Retrieves the free type tests for a specific skill.
-    - get_or_create_test_scenarios_by_site(): Retrieves or creates test scenarios based on a site URL and mode.
-
-    Fields:
-    - queryset: The queryset of tests filtered by the tenant ID.
-    - serializer_class: The serializer class for test data.
-    - permission_classes: The permission classes for accessing test data.
-    - filter_backends: The filter backends for filtering test data.
-    - filterset_class: The filterset class for filtering test data.
-    - ordering_fields: The ordering fields for ordering test data.
-    - lookup_field: The lookup field for retrieving a specific test.
+    Provides endpoints for creating, retrieving, listing, and updating tests.
+    Also includes various custom actions for test-related operations such as
+    generating reports, flashcards, mindmaps, and managing test scenarios.
     """
     queryset = Test.objects.filter(deleted=0)
     serializer_class = TestDisplaySerializer
@@ -117,6 +79,19 @@ class TestViewSet(ApiViewSet,
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
     def create(self, request, *args, **kwargs):
+        """
+        Creates a new test or updates an existing one if 'test_code' is provided.
+
+        If 'test_code' is present in the request data, it updates an existing test.
+        Otherwise, it creates a new test. The creator ID is set to the
+        authenticated user's ID if not provided.
+
+        Args:
+            request (Request): The request object containing test data.
+
+        Returns:
+            Response: A response with the serialized test data and a 201 status code.
+        """
         if request.data.get("test_code"):
             serializer = UpdateTestSerializer(data=request.data)
         else:
@@ -163,18 +138,47 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=["GET"], detail=True, url_path="flash-cards")
     def get_test_flash_cards(self, request, *args, **kwargs):
+        """
+        Retrieves flash card URLs for a specific test.
+
+        Args:
+            request (Request): The request object.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Response: A response containing a list of flash card URLs.
+        """
         test = self.get_object()
         flash_card_urls = get_flash_cards_from_test(test)
         return Response({"flash_cards": flash_card_urls}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="mindmap")
     def get_test_mindmap(self, request, *args, **kwargs):
+        """
+        Retrieves the mindmap URL for a specific test.
+
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: A response containing the mindmap URL.
+        """
         test = self.get_object()
         url = get_mindmap_url_from_test(test)
         return Response({"url": url}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="report")
     def get_test_report_pdf_view(self, request, *args, **kwargs):
+        """
+        Retrieves the URL for the test report PDF.
+
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: A response containing the URL for the test report.
+        """
         test = self.get_object()
 
         report_url = get_test_report(test)
@@ -183,18 +187,41 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=True, url_path="flash-cards-data")
     def get_test_flash_cards_data(self, request, *args, **kwargs):
+        """
+        Retrieves the raw data for test flash cards.
+
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: A response containing the flash card data.
+        """
         test = self.get_object()
         data = get_flash_cards_from_test(test, only_data=True)
         return Response({"data": data}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="mindmap-data")
     def get_test_mindmap_data(self, request, *args, **kwargs):
+        """
+        Retrieves the raw data for a test mindmap.
+
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: A response containing the mindmap data.
+        """
         test = self.get_object()
         data = get_mindmap_url_from_test(test, only_data=True)
         return Response({"data": data}, status=status.HTTP_200_OK)
 
     @action(methods=["GET"], detail=True, url_path="report-data")
     def get_test_report_frontend(self, request, *args, **kwargs):
+        """
+        Retrieves test report data for frontend rendering.
+
+        Includes the tenant's logo in the response data.
+        """
         test = self.get_object()
 
         data = get_test_report(test, only_data=True)
@@ -205,6 +232,16 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="learner-path")
     def get_learner_path(self, request, *args, **kwargs):
+        """
+        Retrieves a personalized learner path for a user based on an objective.
+
+        It identifies relevant tests for the user and sends an email with the
+        learner path.
+
+        Returns:
+            Response: A response containing the serialized test data for the
+                learner path.
+        """
         serializer_class = LearnerPathSerializer(data=request.data)
         serializer_class.is_valid(raise_exception=True)
 
@@ -230,6 +267,12 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="test-from-objective")
     def generate_test_from_objective(self, request, *args, **kwargs):
+        """
+        Generates a potential test structure from a given objective using an AI model.
+
+        Returns:
+            Response: A response containing the generated test data.
+        """
         serializer_class = TestFromObjectiveSerializer(data=request.data)
         serializer_class.is_valid(raise_exception=True)
 
@@ -243,6 +286,12 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="get-special-category")
     def get_tenant_special_case_test_category(self, request, *args, **kwargs):
+        """
+        Retrieves unique special case test categories for the tenant.
+
+        Returns:
+            Response: A list of unique category names.
+        """
         tenant_id=self.request.tenant.uid
         case_type = request.query_params.get("case_type")
 
@@ -255,6 +304,12 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=["GET"], detail=False, url_path="get-special-case-tests")
     def get_tenant_special_case_test(self, request, *args, **kwargs):
+        """
+        Retrieves special case tests for a given category.
+
+        Returns:
+            Response: A list of tests with their titles and codes.
+        """
         tenant_id=self.request.tenant.uid
         case_category = request.query_params.get("case_category")
 
@@ -270,6 +325,12 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=["GET"], detail=False, url_path="get-test-previlage-user")
     def get_test_previlage(self, request, *args, **kwargs):
+        """
+        Retrieves test privileges for a specific user.
+
+        Returns:
+            Response: A list of test codes the user is privileged to access.
+        """
         user_id = request.query_params.get("user_id")
 
         user_att = UserAttribute.objects.get(user_id = user_id)
@@ -358,6 +419,14 @@ class TestViewSet(ApiViewSet,
     
     @action(methods=["GET"], detail=False, url_path="get-tests-by-choice")
     def get_tests_by_choice(self, request, *args, **kwargs):
+        """
+        Retrieves a paginated list of tests based on filter choices.
+
+        Filters by skill, goal, role, course, industry, experience level, and format.
+
+        Returns:
+            Response: A paginated list of tests matching the filter criteria.
+        """
         # return Response("Ok")
         tenant_id = self.request.tenant.uid
         skill = request.query_params.get("skill")
@@ -588,6 +657,15 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_normal_test_csv")
     def get_normal_test_csv(self,request, *args, **kwargs):
+        """
+        Generates and retrieves CSV data for 'normal' tests based on filter criteria.
+
+        This method constructs a CSV-like structure containing details of tests
+        and their associated questions.
+
+        Returns:
+            Response: A dictionary with CSV headings and a list of test data.
+        """
         tenant_id = self.request.tenant.uid
         title = request.query_params.get('title',None)
         test_type = request.query_params.get('test_type',None)
@@ -698,6 +776,15 @@ class TestViewSet(ApiViewSet,
 
     @action(methods=['GET'],detail=False,url_path="get_group_discussion_test_csv")
     def get_group_discussion_test_csv(self,request, *args, **kwargs):
+        """
+        Generates and retrieves CSV data for 'group discussion' tests.
+
+        Filters tests based on various criteria and constructs a CSV-like
+        structure including test details, orchestrated conversation info, and questions.
+
+        Returns:
+            Response: A dictionary with CSV headings and a list of test data.
+        """
         tenant_id = self.request.tenant.uid
         test_type = request.query_params.get('test_type',None)
         interaction_mode = request.query_params.get('interaction_mode',None)
@@ -1719,6 +1806,12 @@ class TestViewSet(ApiViewSet,
         
     @action(methods=['POST'],detail=False, url_path="test-vertex-response")
     def test_vertex_response(self, request, *args, **kwargs):
+        """
+        Generates a response from Google's Vertex AI (Gemini) model.
+
+        Accepts a prompt and optional parameters like top_k, top_p, temperature,
+        and max_tokens to configure the model's response generation.
+        """
         try:
             prompt = request.data.get('prompt')
             top_k = request.data.get('top_k', 1)
@@ -1988,8 +2081,24 @@ class TestViewSet(ApiViewSet,
 
 
 class TestCSVExportViewSet(ApiViewSet):
+    """
+    ViewSet for exporting test data to CSV format.
+    """
+    serializer_class = serializers.Serializer
     @action(methods=["GET"], detail=False, url_path="optimized_get_test_csv")
     def opt_get_test_csv(self, request, *args, **kwargs):
+        """
+        Optimized endpoint to filter tests and generate a CSV mapping.
+
+        This endpoint uses `TestFilterService` to filter tests based on
+        request parameters and `CSVExportService` to generate the CSV data.
+
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: A response containing the generated CSV mapping.
+        """
         params = CSVRequestParams.from_request(request)
         # Filter tests
         tests_qs = TestFilterService().filter_tests(params)
@@ -1999,6 +2108,19 @@ class TestCSVExportViewSet(ApiViewSet):
 
     @action(methods=['GET'], detail=False, url_path='get_test_csv')
     def get_test_csv(self, request, *args, **kwargs):
+        """
+        Exports test data to CSV format based on various filter criteria.
+
+        Filters tests by tenant, type, case, title, codes, candidate type,
+        client name, and creator email. It then constructs a CSV-like
+        mapping of the test data.
+
+        Args:
+            request (Request): The request object containing filter parameters.
+
+        Returns:
+            Response: A response containing the CSV data mapping.
+        """
         tenant_id = getattr(self.request.tenant, "uid", None)
         test_type = request.query_params.get('test_type', None)
         scenario_case = request.query_params.get('scenario_case', None)
@@ -2049,7 +2171,12 @@ class CourseViewSet(ApiViewSet,
                   mixins.RetrieveModelMixin,
                   mixins.UpdateModelMixin):
     """
-    API endpoints for managing Courses and tracking User progress.
+    ViewSet for managing Courses and tracking user progress.
+
+    Provides endpoints to list, retrieve, and update courses. It also includes
+    actions for tracking user progress within courses and modules, managing
+    course packages, and handling user interactions like 'likes' and
+    'listen later' on modules.
     """
 
     queryset = Course.objects.all()
@@ -2252,6 +2379,7 @@ class CourseViewSet(ApiViewSet,
         return user, module
 
     # ---------- MODULE LIKE ----------
+
     @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/like")
     def module_like(self, request, module_id=None):
         """

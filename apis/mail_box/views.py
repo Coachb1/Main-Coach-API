@@ -2,16 +2,40 @@ from commons.viewset import ApiViewSet
 from rest_framework import mixins, status
 from rest_framework.response import Response
 from mail_box.models import MailBox, AuthorizedEmails, EmailConversation, AccountabilityIntake
+from rest_framework import serializers
 from apis.mail_box.serializers import MailBoxViewSerializer, AuthorizedEmailsSerializer, EmailConversationSerializer, AccountabilityIntakeSerializer
 from clients.permissions import IsAuthenticatedClient
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
 from mail_box.choices import FollowupFreqType
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, inline_serializer
 import logging
 
 logger = logging.getLogger("main")
 
+@extend_schema(tags=["Mailbox"])
+@extend_schema_view(
+    list=extend_schema(
+        summary="List Mailboxes",
+        description="Fetches a list of all mailboxes. You can filter the results using the query parameters below.",
+        parameters=[
+            OpenApiParameter("uid", str, description="Filter by the unique identifier (UID) of the mailbox."),
+            OpenApiParameter("email", str, description="Filter by the email address associated with the mailbox."),
+            OpenApiParameter("form_id", str, description="Filter by the form ID found within the intake URL."),
+        ]
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve a Mailbox",
+        description="Fetches details of a specific mailbox by its UID."
+    ),
+    create=extend_schema(summary="Create a Mailbox", description="Creates a new mailbox."),
+    update=extend_schema(summary="Update a Mailbox", description="Updates an existing mailbox."),
+    partial_update=extend_schema(
+        summary="Partially Update a Mailbox",
+        description="Partially updates an existing mailbox."
+    ),
+)
 class MailBoxViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin):
     queryset = MailBox.objects.filter(deleted=0)
     serializer_class = MailBoxViewSerializer
@@ -47,6 +71,28 @@ class MailBoxViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixi
             logger.error(f"Error creating mailbox: {str(e)}")
             raise e
 
+@extend_schema(tags=["Mailbox - Authorized Emails"])
+@extend_schema_view(
+    list=extend_schema(
+        summary="List Authorized Emails",
+        description="Fetches a list of authorized emails. Use query parameters to filter specific users.",
+        parameters=[
+            OpenApiParameter("uid", str, description="Filter by the unique identifier (UID) of the authorized email entry."),
+            OpenApiParameter("email", str, description="Filter by the user's email address."),
+            OpenApiParameter("mailbox_id", str, description="Filter by the associated Mailbox UID."),
+        ]
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve an Authorized Email",
+        description="Fetches details of a specific authorized email by its UID."
+    ),
+    create=extend_schema(summary="Create an Authorized Email", description="Authorizes a new email for a mailbox."),
+    update=extend_schema(summary="Update an Authorized Email", description="Updates an existing authorized email."),
+    partial_update=extend_schema(
+        summary="Partially Update an Authorized Email",
+        description="Partially updates an existing authorized email."
+    ),
+)
 class AuthorizedEmailsViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin):
     queryset = AuthorizedEmails.objects.filter(deleted=0)
     serializer_class = AuthorizedEmailsSerializer
@@ -69,6 +115,33 @@ class AuthorizedEmailsViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retrieve
         
         return queryset
     
+    @extend_schema(
+        summary="Manage User Intake",
+        description="**GET**: Retrieve user intake data using `email` and `mailbox_id`.\n\n**POST/PATCH**: Create or update user intake information. Note: The user must already exist (matched by email and mailbox_id) for the update to take effect.",
+        parameters=[
+            OpenApiParameter("email", str, description="User's email address (Required for GET)", location=OpenApiParameter.QUERY),
+            OpenApiParameter("mailbox_id", str, description="Mailbox UID (Required for GET)", location=OpenApiParameter.QUERY),
+        ],
+        request=inline_serializer(
+            name='UserIntakeRequest',
+            fields={
+                'email': serializers.EmailField(help_text="The email address of the user."),
+                'mailbox_id': serializers.CharField(help_text="The UID of the mailbox."),
+                'name': serializers.CharField(required=False, help_text="The name of the user."),
+                'age': serializers.IntegerField(required=False, help_text="The age of the user."),
+                'situation': serializers.CharField(required=False, help_text="Current situation or context."),
+                'goal': serializers.CharField(required=False, help_text="User's goal."),
+                'is_reward_email': serializers.BooleanField(default=True, help_text="Whether to send reward emails."),
+                'followup_freq': serializers.CharField(default='never', help_text="Frequency of follow-up emails (e.g., 'daily', 'weekly')."),
+                'followup_esc_email': serializers.EmailField(required=False, help_text="Email for escalation."),
+            }
+        ),
+        responses={
+            200: AuthorizedEmailsSerializer,
+            201: {"description": "Successfully created/updated user intake."},
+            400: {"description": "Failed to perform user intake."}
+        }
+    )
     @action(methods=['GET','POST','PATCH'], detail=False, url_path='user-intake')
     def user_intake(self,request,*args,**kwargs):
         try:
@@ -108,6 +181,29 @@ class AuthorizedEmailsViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retrieve
             logger.exception(f"Got Error in user intake: {e}")
             return Response({'error': f"failed to perform user intake : {e}"}, status= status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(tags=["Mailbox - Email Conversations"])
+@extend_schema_view(
+    list=extend_schema(
+        summary="List Email Conversations",
+        description="Fetches a list of email conversations. Supports filtering by various fields.",
+        parameters=[
+            OpenApiParameter("uid", str, description="Filter by Conversation UID."),
+            OpenApiParameter("mailbox_id", str, description="Filter by Mailbox UID."),
+            OpenApiParameter("subject", str, description="Filter by email subject."),
+            OpenApiParameter("email", str, description="Filter by sender's email address."),
+        ]
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve an Email Conversation",
+        description="Fetches details of a specific email conversation by its UID."
+    ),
+    create=extend_schema(summary="Create an Email Conversation", description="Logs a new email conversation."),
+    update=extend_schema(summary="Update an Email Conversation", description="Updates an existing email conversation."),
+    partial_update=extend_schema(
+        summary="Partially Update an Email Conversation",
+        description="Partially updates an existing email conversation."
+    ),
+)
 class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin):
     queryset = EmailConversation.objects.filter(deleted=0)
     serializer_class = EmailConversationSerializer
@@ -147,7 +243,46 @@ class EmailConversationViewSet(ApiViewSet, mixins.ListModelMixin, mixins.Retriev
             logger.error(f"Error creating email conversation: {str(e)}")
             raise e
 
-
+@extend_schema(tags=["Mailbox - Accountability Intake"])
+@extend_schema_view(
+    list=extend_schema(
+        summary="List Accountability Intakes",
+        description="Fetches a list of accountability intakes. You can filter by UID, form ID, or email address.",
+        parameters=[
+        OpenApiParameter(
+            name="uid",
+            description="Unique identifier of the accountability intake",
+            required=False,
+            type=str,
+        ),
+        OpenApiParameter(
+            name="form_id",
+            description="Filter intakes by form ID",
+            required=False,
+            type=str,
+        ),
+        OpenApiParameter(
+            name="email_address",
+            description="Filter intakes by submitter email address",
+            required=False,
+            type=str,
+        ),
+    ]
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve an Accountability Intake",
+        description="Fetches details of a specific accountability intake by its UID."
+    ),
+    create=extend_schema(
+        summary="Create or Update an Accountability Intake",
+        description="Creates a new accountability intake. \n\n**Upsert Behavior**: If an intake with the same `email_address` and `form_id` already exists, the existing entry will be updated with the new data."
+    ),
+    update=extend_schema(summary="Update an Accountability Intake", description="Updates an existing accountability intake."),
+    partial_update=extend_schema(
+        summary="Partially Update an Accountability Intake",
+        description="Partially updates an existing accountability intake."
+    ),
+)
 class AccountabilityIntakeViewSet(ApiViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin):
     queryset = AccountabilityIntake.objects.filter(deleted=0)
     serializer_class = AccountabilityIntakeSerializer

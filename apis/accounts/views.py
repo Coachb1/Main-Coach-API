@@ -5,15 +5,18 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import logging
-from django.db.models import Subquery
+from django.db.models import Subquery, Count
 from django.utils import timezone
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import threading
 import csv
 from io import TextIOWrapper
+
 from external_apis.slack_alert_api import send_slack_message
 from commons.notifications import send_error_notification
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, inline_serializer, OpenApiTypes, OpenApiResponse, OpenApiExample
+from rest_framework import serializers
 
 
 from apis.accounts.aggregator import create_user_account
@@ -68,7 +71,18 @@ from documents.utils import get_document_summary
 import random
 from coaching_conversations.helpers import update_or_create_client_id
 from apis.accounts.serializers import clientUserInfoSerializer
-from apis.accounts.utils import delete_user_resources
+from apis.accounts.utils import (create_coach_profile_helper, 
+                                 delete_user_resources, 
+                                 generate_user_details_excel, 
+                                 get_bot_details_helper, 
+                                 get_bots_helper, 
+                                 get_coach_profiles_helper, 
+                                 get_or_create_feedback_helper, 
+                                 resolve_client_information, 
+                                 update_coach_profile_helper, 
+                                 validate_user_feedback_input,
+                                 process_and_store_youtube_transcript
+                                 )
 from utilities.models import SessionNotesRecommendations
 from django.db import transaction
 from coaching_conversations.helpers import add_or_remove_emails_from_client
@@ -80,19 +94,29 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from django.core.cache import cache
 import time
 from commons.cache_utils import get_cache, set_cache, delete_cache, generate_cache_key, reset_cache_with_prefix
-
-import openpyxl
-import os
-from openpyxl.styles import Font
-from collections.abc import MutableMapping
 from django.http import HttpResponse
 from users.helpers import generate_bot_id
 import copy
 
+
 logger = logging.getLogger(__name__)
 
+@extend_schema(tags=['Accounts- User'])
+@extend_schema_view(
+    list=extend_schema(
+        summary="List Accounts",
+        description="List all user accounts associated with the current tenant."
+    )
+)
 class AccountsViewSet(ApiViewSet,
                       mixins.ListModelMixin):
+    """
+    ViewSet for managing user accounts and related resources.
+
+    Provides endpoints for creating and listing user accounts, retrieving
+    account details via different identities, and managing user attributes,
+    bots, profiles, and connections.
+    """
     queryset = User.objects.filter(deleted=0)
     serializer_class = AccountSerializer
     permission_classes = (IsAuthenticatedClient, IsAuthenticatedUser)
@@ -102,9 +126,15 @@ class AccountsViewSet(ApiViewSet,
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=self.request.tenant.uid)
 
+    @extend_schema(
+        summary="Create Account",
+        request=SetupAccountSerializer,
+        responses={201: AccountSerializer},
+        tags=['Accounts- User']
+    )
     def create(self, request, *args, **kwargs):
         """
-        Create a user account.
+        Create a user account/ fetches if already exist.
 
         Args:
             request (object): The HTTP request object containing the user and identity data.
@@ -144,6 +174,15 @@ class AccountsViewSet(ApiViewSet,
 
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        summary="Get Account/User via Identity",
+        parameters=[
+            OpenApiParameter("identity_type", str, location=OpenApiParameter.PATH, description="Type of identity (e.g., email, deepchat_unique_id)"),
+            OpenApiParameter("identity_value", str, location=OpenApiParameter.PATH, description="Value of the identity")
+        ],
+        responses={200: AccountSerializer},
+        tags=['Accounts- User']
+    )
     @action(methods=["GET"],
             detail=False,
             url_path=r"identities/(?P<identity_type>[^\s]+)/(?P<identity_value>[^\s]+)")
@@ -163,25 +202,73 @@ class AccountsViewSet(ApiViewSet,
         )
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Get Current User",
+        description="Retrieves the details of the currently authenticated user.",
+        responses={200: AccountSerializer},
+        tags=['Accounts- User']
+    )
     @action(methods=['GET'], detail=False, url_path="me")
     def me(self, request):
         user = request.auth_user
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
 
 
+    @extend_schema(
+        summary="Upsert User Attributes",
+        request=UserAttributesUserContextSerializer,
+        responses={200: AccountSerializer},
+        tags=['Accounts- User']
+    )
     @action(methods=["POST"], detail=True, url_path="upsert-attributes")
     def upsert_user_attributes_view(self, request, *args, **kwargs):
         """
-        Update or insert user attributes in the database.
+        Updates or inserts custom attributes for a specific user.
 
-        :param request: The HTTP request object.
-        :type request: HttpRequest
-        :param args: Additional positional arguments.
-        :type args: tuple
-        :param kwargs: Additional keyword arguments.
-        :type kwargs: dict
-        :return: The HTTP response object containing the serialized user account data.
-        :rtype: HttpResponse
+        This endpoint allows storing arbitrary JSON data associated with a user under a specific tag.
+        It is useful for saving user preferences, configuration settings, or other metadata.
+
+        **Authentication & Permissions:**
+        - **Authentication:** Required (Client/User).
+        - **Permissions:** `IsAuthenticatedClient`, `IsAuthenticatedUser`.
+
+        **HTTP Method:**
+        - `POST`
+
+        **URL Pattern:**
+        - `/api/v1/accounts/{uid}/upsert-attributes/`
+
+        **Request Body Parameters:**
+        - `tag` (string, required): A unique identifier or category for the attributes (e.g., "preferences").
+        - `attributes` (object, required): A JSON object containing key-value pairs to be stored or updated.
+
+        **Response Structure:**
+        - **Success (200 OK):**
+          Returns the updated User object serialized via `AccountSerializer`.
+          - `uid` (str): User's unique ID.
+          - `name` (str): User's name.
+          - `preferences` (dict): Updated user preferences/attributes.
+
+        - **Error Responses:**
+          - `400 Bad Request`: If `tag` or `attributes` are missing or invalid.
+          - `404 Not Found`: If the user with the specified `uid` does not exist.
+
+        **Example Request:**
+        ```http
+        POST /api/v1/accounts/12345-abcde/upsert-attributes/ HTTP/1.1
+        Content-Type: application/json
+
+        {
+            "tag": "user_preferences",
+            "attributes": {
+                "theme": "dark",
+                "notifications": true
+            }
+        }
+        ```
+
+        **Notes:**
+        - The `uid` in the URL path identifies the user record to update.
         """
         serializer = UserAttributesUserContextSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -197,6 +284,11 @@ class AccountsViewSet(ApiViewSet,
 
         return Response(AccountSerializer(instance=user).data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Get Participant Report PDF",
+        description="Generates and returns the URL for the participant's PDF report.",
+        tags=['Accounts- User']
+    )
     @action(methods=["GET"], detail=True, url_path="participant-report")
     def get_participant_report_pdf_view(self, request, *args, **kwargs):
         user = self.get_object()
@@ -205,6 +297,13 @@ class AccountsViewSet(ApiViewSet,
 
         return Response({"report_url": report_url})
 
+
+
+    @extend_schema(
+        summary="Get Participant Report Data",
+        description="Retrieves raw data for the participant's report to be rendered on the frontend.",
+        tags=['Accounts- User']
+    )
     @action(methods=["GET"], detail=True, url_path="participant-report-data")
     def get_participant_report_frontend(self, request, *args, **kwargs):
         user = self.get_object()
@@ -213,6 +312,14 @@ class AccountsViewSet(ApiViewSet,
 
         return Response({"data": data, "status": "completed"})
     
+    @extend_schema(
+        summary="Get Client Participant Report Data",
+        description="Retrieves report data for all participants associated with a specific client.",
+        parameters=[
+            OpenApiParameter("client_name", str, description="Name of the client", required=True)
+            ],
+        tags=['Accounts- ClientUser']
+    )
     @action(methods=["GET"], detail=False, url_path="client-participant-report-data")
     def get_client_participant_report_frontend(self, request, *args, **kwargs):
 
@@ -243,6 +350,10 @@ class AccountsViewSet(ApiViewSet,
         return Response({"data": data, "status": "completed"})
 
 
+    @extend_schema(
+        summary="Get Workspace Users",
+        tags=['Accounts- User']
+    )
     @action(methods=["GET"], detail=False, url_path="get-workspace-users")
     def get_workspace_users(self, request, *args, **kwargs):
         """
@@ -272,23 +383,76 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             logger.error({"!!!! Error":e},exc_info=True)
 
-
+    @extend_schema(
+        summary="Get Repeat Status",
+        parameters=[
+            OpenApiParameter("participant_id", str, description="ID of the participant", required=True),
+            OpenApiParameter("test_code", str, description="Code of the test", required=False),
+        ],
+        tags=['Accounts- User']        
+    )
     @action(methods=['GET'], detail=False, url_path="get_is_repeat_status")
     def get_is_repeat_status(self, request, *args, **kwargs):
         """
-        Retrieves the repeat status of a participant for a given tenant.
+        Checks if a participant is allowed to repeat a test or take a new one based on configured limits.
 
-        This method calculates the number of tests the participant has attempted in the current month and compares it to the maximum number of tests allowed per month.
-        It returns the repeat status and the remaining number of tests for the month.
+        This endpoint evaluates whether a specific user is permitted to attempt a test. It checks two main factors:
+        1. Whether the specific test (or system default) allows repetition (`is_repeat`).
+        2. Whether the user has remaining test attempts for the current month (`test_per_month` limit).
 
-        :param request: The HTTP request object.
-        :param participant_id: The ID of the participant for whom the repeat status is being checked.
-        :return: A dictionary containing the tenant ID, repeat status, and the remaining number of tests for the month.
+        The configuration is resolved hierarchically:
+        - **Repeat Status:** Test > User > Client > Tenant.
+        - **Monthly Limit:** User > Client > Tenant.
+
+        **Authentication & Permissions:**
+        - **Authentication:** Required (Client/User).
+        - **Permissions:** `IsAuthenticatedClient`, `IsAuthenticatedUser`.
+
+        **HTTP Method:**
+        - `GET`
+
+        **URL Pattern:**
+        - `/api/v1/accounts/get_is_repeat_status/`
+
+        **Query Parameters:**
+        - `participant_id` (string, required): The unique identifier (UID) of the participant.
+        - `test_code` (string, optional): The unique code of the specific test being attempted. If provided, test-specific settings take precedence.
+
+        **Response Structure:**
+        - **Success (200 OK):**
+          Returns a JSON object containing:
+          - `tenant_id` (str): The tenant's UID.
+          - `is_repeat` (bool): `True` if the user is allowed to repeat the test, `False` otherwise.
+          - `monthly_remaining_tests` (int): The number of test attempts remaining for the user in the current month.
+
+        - **Error Responses:**
+          - `404 Not Found`: If the user or test (if provided) cannot be found.
+
+        **Example Request:**
+        ```http
+        GET /api/v1/accounts/get_is_repeat_status/?participant_id=12345-abcde&test_code=TEST-001 HTTP/1.1
+        Authorization: Bearer <token>
+        ```
+
+        **Example Response:**
+        ```json
+        {
+            "tenant_id": "tenant-uid-123",
+            "is_repeat": true,
+            "monthly_remaining_tests": 4
+        }
+        ```
+
+        **Notes:**
+        - `monthly_remaining_tests` is calculated based on completed sessions in the current calendar month.
         """
 
         tenant = self.request.tenant
         participant_id = request.query_params.get("participant_id")
         test_code = request.query_params.get("test_code")
+        
+        if not participant_id:
+            return Response({"error":"participant_id required"},status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(deleted=False,tenant_id=tenant.uid,uid=participant_id)
@@ -354,6 +518,12 @@ class AccountsViewSet(ApiViewSet,
         data = {"tenant_id": tenant.uid, "is_repeat": is_repeat, "monthly_remaining_tests": test_per_month - total_test_attempted if user.role != 'super_admin' else 1}
         return Response(data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Get User Type",
+        description="Retrieves the role of a specific user or lists all available user roles.",
+        parameters=[OpenApiParameter("user_id", str, description="User ID to fetch role for", required=False)],
+        tags=['Accounts- User']
+    )
     @action(methods=['GET'], detail=False, url_path="get-user-type")
     def get_user_type(self,request,*args, **kwargs):
         """
@@ -372,6 +542,10 @@ class AccountsViewSet(ApiViewSet,
             user_roles = list(UserRoleChoice.values.keys())
             return Response({"user_roles":user_roles}, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Get WhatsApp Restricted Numbers",
+        tags=['Accounts- Tenant']
+    )
     @action(methods=['GET'], detail=False, url_path="get-mobile-number-restriction-list-whatsapp")
     def get_mobile_number_res_list_whatsapp(self,request,*args, **kwargs):
         """
@@ -388,6 +562,10 @@ class AccountsViewSet(ApiViewSet,
         return Response({"mobile_numbers": number_list,'active': tenant.mobile_number_restriction_whatsapp},status=status.HTTP_200_OK)
 
 
+    @extend_schema(
+        summary="Get Test Codes for Web",
+        tags=['Accounts- Tenant']
+    )
     @action(methods=['GET'], detail=False, url_path="get-test-codes-for-web")
     def get_test_codes_for_web(self,request,*args, **kwargs):
         '''
@@ -402,10 +580,18 @@ class AccountsViewSet(ApiViewSet,
 
         return Response({"data":test_code_json},status=status.HTTP_200_OK)
     
+    @extend_schema(
+        summary="Get My Library Data (Deprecated)",
+        parameters=[
+            OpenApiParameter("group", str, description="Filter by client name"),
+            OpenApiParameter("candidate_type", str, description="Filter by candidate type")
+        ],
+        tags=['Accounts- ClientUser']
+    )
     @action(methods=['GET','POST'],detail=False, url_path="get-my-lib-data")
     def get_my_lib_data(self,request,*args, **kwargs):
         """
-        Retrieves library data based on a group name.
+        Retrieves library data based on a group name/ client name.
 
         Args:
             request (object): The HTTP request object.
@@ -447,16 +633,82 @@ class AccountsViewSet(ApiViewSet,
         return Response({"data":group_data},status=status.HTTP_200_OK)
 
 
-    @action(methods=['GET'],detail=False, url_path="get-bot-details")
-    def get_bot_details(self,request,*args, **kwargs):
+    @extend_schema(
+        summary="Get Bot Details",
+        parameters=[OpenApiParameter("bot_id", str, description="The unique ID of the bot eg: avatar_bot_xyzsdf203", required=True)],
+        tags=['Accounts- UserSignatureBot']
+    )
+    @action(methods=['GET'], detail=False, url_path="get-bot-details")
+    def get_bot_details(self, request, *args, **kwargs):
         """
-        Retrieves details of a bot based on the provided bot ID.
+    Retrieve complete configuration and metadata for a Signature Bot.
 
-        :param request: The HTTP request object.
-        :param bot_id: The ID of the bot to retrieve details for.
-        :return: A dictionary containing the bot details with keys 'faqs', 'attributes', 'bot_details', and 'recommended_codes'.
-        :rtype: dict
-        """
+    This endpoint returns all information required to initialize and render
+    a bot on the client side, including:
+    - Bot configuration and attributes
+    - FAQs and scenario data
+    - LLM mappings and execution order
+    - UI configuration and fitment data
+    - Ownership, access, and visibility settings
+
+    The bot is resolved using the `bot_id` provided as a query parameter and
+    is scoped to the requesting tenant.
+
+    Query Parameters:
+        bot_id (str): Public identifier of the bot.
+
+    Returns:
+        HTTP 200 OK:
+            {
+                "data": {
+                    "faqs": list | dict,
+                    "attributes": dict,
+                    "bot_details": dict,
+                    "recommended_codes": list,
+                    "bot_type": str,
+                    "user_id": str,
+                    "is_fitment_analysis": bool,
+                    "is_strict_fitment": bool,
+                    "is_sample_bot": bool,
+                    "is_system_bot": bool,
+                    "additional_data": dict | null,
+                    "scenario_case": str | null,
+                    "bot_expires_at": datetime | null,
+                    "access_code": str | null,
+                    "tag": str | null,
+                    "page_information": dict,
+                    "is_private": bool,
+                    "allow_public_access": bool,
+                    "system_instructions": str | null,
+                    "selected_llms": dict | null,
+                    "llm_order": list,
+                    "allowed_ips": list | null,
+                    "deep_dive_data": dict (only for deep_dive bots),
+                    "deepdive_prompt": str (only for deep_dive bots),
+                    "ui_information": dict,
+                    "fitment_qna": list | null,
+                    "fitment_options": list | null,
+                    "feedback_qna": list | null,
+                    "initial_qna": list | null,
+                    "bot_name": str | null,
+                    "description": str | null,
+                    "profile_details": dict | null,
+                    "feedback_id": str | null,
+                    "owner_profile_image": str | null
+                }
+            }
+
+        HTTP 404 Not Found:
+            {
+                "error": "Bot not found"
+            }
+
+    Notes:
+        - System instructions are resolved from global defaults if not
+          explicitly configured on the bot.
+        - No mutation is performed; this is a read-only operation.
+    """
+
         bot_id = request.query_params.get('bot_id')
 
         logger.info(f"****************** Bot ID: {bot_id} **********************")
@@ -467,179 +719,116 @@ class AccountsViewSet(ApiViewSet,
             logger.exception({"!!!!!!!!!! Error": e}, exc_info=True)
             return Response({"error": "Bot not found"},status=status.HTTP_404_NOT_FOUND)
 
-        data = {}
-        data['faqs'] = signature_bot.faqs
-        data['attributes'] = signature_bot.attributes
-        data['bot_details'] = signature_bot.bot_details
-        data['recommended_codes'] = signature_bot.recommended_codes
-        data['bot_type'] = signature_bot.bot_type
-        data['user_id'] = signature_bot.user_id
-        data['is_fitment_analysis'] = signature_bot.is_fitment_analysis
-        data['is_strict_fitment'] = signature_bot.is_strict_fitment
-        data['is_sample_bot'] = signature_bot.is_sample_bot
-        data['is_system_bot'] = signature_bot.is_system_bot
-        data['additional_data'] = signature_bot.data.get('additional_data',None)
-        data['scenario_case'] = signature_bot.bot_scenario_case
-        data['bot_expires_at'] = signature_bot.bot_expires_at
-        data['access_code'] = signature_bot.access_code
-        data['tag'] = signature_bot.tag
-        data['page_information'] = signature_bot.page_informations or get_default_signature_bot_page_information()
-        data['is_private'] = signature_bot.is_private
-        data['allow_public_access'] = signature_bot.allow_public_access
-        
-        if signature_bot.system_instructions:
-            data['system_instructions'] = signature_bot.system_instructions
-        else:
-            system_instruction = GlobalSystemInstructions.objects.filter(deleted=False,tenant_id=signature_bot.tenant_id, resourse_type=signature_bot.bot_type).first()
-            logger.info(f"system_instruction: {system_instruction.instruction if system_instruction else None}")
-            data['system_instructions'] = system_instruction.instruction if system_instruction else None
-
-        
-        
-        client = get_client_info_from_user_detail(tenant_id=signature_bot.tenant_id, user_uid=signature_bot.user_id)
-
-        llms = LLMMappingTable.objects.filter(deleted=False, bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id).first()
-        if llms:
-            data['selected_llms'] = LLMMappingSerializer(llms).data
-        data['llm_order'] = get_llm_order(bot_type=signature_bot.bot_type, tenant_id=signature_bot.tenant_id)
-        
-
-        if client:
-            data["allowed_ips"] = client.allowed_ips
-
-        if signature_bot.bot_type == 'deep_dive':
-            data['deep_dive_data'] = signature_bot.data
-            data['deepdive_prompt'] = signature_bot.custom_prompt
-
-        try:
-            bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-            data['is_audio_response'] = bot_att.is_audio_response
-            data['ui_information'] = bot_att.ui_information
-            data['extracted_data'] = bot_att.extracted_documents
-
-            if bot_att.fitment_data:
-                data['fitment_qna'] = bot_att.fitment_data['mentee_que']
-            if bot_att.fitment_data:
-                data['fitment_options'] = bot_att.fitment_data['options']
-            
-            if bot_att.feedback_questions:
-                data['feedback_qna'] = bot_att.feedback_questions
-            if bot_att.initial_qnas:
-                data['initial_qna'] = bot_att.initial_qnas
-            if bot_att.bot_name:
-                data['bot_name'] = bot_att.bot_name
-            if bot_att.about:
-                data['description'] = bot_att.about
-
-            coach_profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=signature_bot.user_id).first()
-
-            if coach_profile:
-                data["coaching_for_fitment"] = coach_profile.coaching_for_fitment.lower() if coach_profile.coaching_for_fitment else None
-                data['profile_details'] = CoachCoacheeMentorMenteeProfileSerializer(coach_profile).data
-
-            
-            feedback_bot = SignatureBot.objects.filter(tenant_id=self.request.tenant.uid,user_id=signature_bot.user_id,bot_type=BotTypeChoice.feedback_bot).first()
-            if feedback_bot:
-                data['feedback_id'] = feedback_bot.bot_id
-            else:
-                data['feedback_id'] = None
-
-            if not signature_bot.is_system_bot and not signature_bot.is_sample_bot:
-                if coach_profile:
-                    data['owner_profile_image'] = coach_profile.profile_image_url
-            
-        except Exception as e:
-            logger.exception(e)
-            error_msg = f"Failed to get bot details: {e}\n\n"
-            error_msg += traceback.format_exc()
-            # send_slack_message({"module": "########### get_bot_details ###########", "error": str(e)})
-            send_error_notification("get_bot_details",error_msg,{"bot_id":bot_id})
-
-
+        data = get_bot_details_helper(signature_bot=signature_bot)
         return Response({"data":data},status=status.HTTP_200_OK)
 
 
+    @extend_schema(
+        summary="Get Client Information",
+        description="Retrieves client information based on mode ('my_lib', 'user_info', 'only_client_data') and filters.",
+        parameters=[
+            OpenApiParameter("for", str, description="Mode of retrieval: 'my_lib', 'user_info', or 'only_client_data'"),
+            OpenApiParameter("user_id", str, description="Filter by User ID"),
+            OpenApiParameter("email", str, description="Filter by Email"),
+            OpenApiParameter("mob_number", str, description="Filter by Mobile Number"),
+            OpenApiParameter("client_name", str, description="Filter by Client Name (for 'only_client_data')"),
+        ],
+        tags=['Accounts- ClientUser']
+    )
     @action(methods=['GET'], detail=False, url_path="get-client-information")
-    def get_client_informations(self,request,*args, **kwargs):
+    def get_client_informations(self, request, *args, **kwargs):
         """
-        Retrieves client information based on the provided parameters.
+        Retrieve client-related information scoped to the current tenant.
+
+        This endpoint supports multiple retrieval modes controlled via the
+        `for` query parameter and returns data accordingly.
+
+        Supported Modes:
+            - my_lib:
+                Returns a grouped mapping of client names and their associated
+                member email addresses.
+
+            - user_info:
+                Returns user-specific client information resolved using one of:
+                user_id, email, or mobile number.
+
+            - only_client_data:
+                Returns raw client metadata resolved via client_name, client_id,
+                or user-identifying parameters.
+
+        Query Parameters:
+            for (str): Retrieval mode. One of:
+                - "my_lib"
+                - "user_info"
+                - "only_client_data"
+
+            user_id (str, optional): User identifier.
+            email (str, optional): User email address.
+            mob_number (str, optional): User mobile number.
+            client_name (str, optional): Client name (only_client_data mode).
+            client_id (str, optional): Client UID (only_client_data mode).
+
         Returns:
-            dict: A dictionary containing the retrieved client information. The structure of the dictionary depends on the `mode` parameter.
+            HTTP 200 OK:
+                {
+                    "data": dict
+                }
+
+            HTTP 400 Bad Request:
+                {
+                    "error": str
+                }
+
+        Notes:
+            - Results are cached per tenant and query combination.
+            - No data mutation occurs; this is a read-only operation.
+            - If no user is found in `user_info` mode, a demo-user response
+            is returned instead of an error.
         """
+
         try:
-            logger.info(f"(((((((((((((((((((((((((((((((( REQUEST ORIGIN : {request.META.get('HTTP_REFERER')} |   {request.headers.get('Origin')}  |  {request.META.get('HTTP_ORIGIN')}   ))))))))))))))))))))))))))))))))")
-            mode = request.query_params.get('for',None)  # can be my_lib, user_info
-            user_id = request.query_params.get('user_id',None)
-            email = request.query_params.get('email',None)
-            mob_number = request.query_params.get('mob_number',None)
+            logger.info(
+                f"(((((((((((((((((((((((((((((((( REQUEST ORIGIN : "
+                f"{request.META.get('HTTP_REFERER')} | "
+                f"{request.headers.get('Origin')} | "
+                f"{request.META.get('HTTP_ORIGIN')} ))))))))))))))))))))))))))))))))"
+            )
+
+            mode = request.query_params.get("for", None) # can be my_lib, user_info
+            user_id = request.query_params.get("user_id", None)
+            email = request.query_params.get("email", None)
+            mob_number = request.query_params.get("mob_number", None)
             tenant = self.request.tenant
 
-            logger.info(f"Received request with parameters - mode: {mode}, user_id: {user_id}, email: {email}, mob_number: {mob_number}")
-            
+            logger.info(
+                f"Received request with parameters - "
+                f"mode: {mode}, user_id: {user_id}, email: {email}, mob_number: {mob_number}"
+            )
 
-            cache_key = generate_cache_key("client_info",tenant.uid,mode,user_id,email,mob_number)
+            cache_key = generate_cache_key(
+                "client_info", tenant.uid, mode, user_id, email, mob_number
+            )
             cached_data = get_cache(cache_key)
             # if cached_data:
-            #     return Response({"data":cached_data},status=status.HTTP_200_OK)
-            
-            client_info = ClientUserInfo.objects.filter(tenant_id=tenant.uid, deleted=False)
-            data = {}
+            #     return Response({"data": cached_data}, status=status.HTTP_200_OK)
 
-            if mode == 'my_lib':
-                client_and_emails_map = []
+            client_info = ClientUserInfo.objects.filter(
+                tenant_id=tenant.uid, deleted=False
+            )
 
-                for client in client_info:
-                    client_and_emails_map.append({"group": client.client_name,
-                                                "emails": [email for email in client.member_emails.split(',')] if client.member_emails else []
-                                                })
-                
-                data['my_lib'] = client_and_emails_map
-            
-            elif mode == 'user_info':
-                user = ''
-                if user_id:
-                    user = client_info.filter(member_user_ids__contains = user_id)
-                if email:
-                    user = client_info.filter(member_emails__contains = email)
-                if mob_number:
-                    user = client_info.filter(member_mob_numbers__contains = mob_number)
+            data = resolve_client_information(
+                mode=mode,
+                client_info=client_info,
+                user_id=user_id,
+                email=email,
+                mob_number=mob_number,
+                request=request,
+            )
 
-                user_info = []
-
-                for u in user:
-                    client_user_data = get_client_user_info(u,email)
-                    user_info.append(client_user_data)
-
-                if len(user_info) == 0:
-                    user_info.append({"msg": "user not found",
-                                      "is_restricted": False,
-                                      "is_demo_user": True},
-                                      )
-
-                data['user_info'] = user_info
-
-            elif mode == 'only_client_data':
-                client = None
-                client_name = self.request.query_params.get('client_name')
-                client_id = self.request.query_params.get('client_id')
-                if client_name:
-                    client = client_info.filter(client_name=client_name)
-                elif client_id:
-                    client = client_info.filter(uid=client_id)
-                else:
-                    if user_id:
-                        client = client_info.filter(member_user_ids__contains = user_id)
-                    if email:
-                        client = client_info.filter(member_emails__contains = email)
-                    if mob_number:
-                        client = client_info.filter(member_mob_numbers__contains = mob_number)
-
-                data['only_client_data'] = clientUserInfoSerializer(client.first()).data if client else {}
-                
             set_cache(cache_key, data)
             logger.info("Client information retrieval successful")
 
-            return Response({"data":data },status=status.HTTP_200_OK)
+            return Response({"data": data}, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.exception(f"got error: {e}")
@@ -647,172 +836,225 @@ class AccountsViewSet(ApiViewSet,
             error_msg += traceback.format_exc()
             # send_slack_message({"module": "########### get_client_informations ###########", "error": str(e)})
             # send_error_notification("get_client_informations",error_msg,{"mode":mode,"user_id":user_id,"email":email,"mob_number":mob_number})
-            return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['GET','POST'], detail=False, url_path="get-user-feedback-data")
-    def get_user_feedback_data(self,request,*args, **kwargs):
+
+
+
+
+    @extend_schema(
+        methods=["GET"],
+        summary="Get user feedback / QnA data",
+        description=(
+            "Retrieve feedback messages or the most recent intake summary "
+            "associated with a bot interaction.\n\n"
+            "Behavior:\n"
+            "- If `user_id` is provided, returns the latest intake summary for that user.\n"
+            "- Otherwise, returns feedback messages.\n"
+            "- `feedback_type` can be used to filter messages by sentiment.\n\n"
+            "Notes:\n"
+            "- `bot_id` is required for all qna_type values except `fitment`.\n"
+            "- Response structure varies based on request parameters."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="bot_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Public identifier of the bot. "
+                    "Required for qna_type other than `fitment`."
+                ),
+            ),
+            OpenApiParameter(
+                name="qna_type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Logical category of QnA that controls processing behavior.",
+                enum=["feedback", "fitment", "initial_qna"],
+            ),
+            OpenApiParameter(
+                name="feedback_type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=["positive", "negative"],
+                description="Filter feedback messages by sentiment.",
+            ),
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Participant user ID (required to fetch intake summary).",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Feedback or intake data retrieved successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "positive_msgs": {"type": "array", "items": {"type": "object"}},
+                        "critical_msgs": {"type": "array", "items": {"type": "object"}},
+                        "message": {"type": "array", "items": {"type": "object"}},
+                        "intake_summary": {"type": "string"},
+                        "intake_id": {"type": "string"},
+                    },
+                },
+            ),
+            400: OpenApiResponse(
+                description="Invalid input or entity not found",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "error": {"type": "string"},
+                    },
+                },
+            ),
+        },
+        tags=["Accounts- UserSignatureBot"],
+    )
+    @extend_schema(
+        methods=["POST"],
+        summary="Submit user feedback / QnA",
+        description=(
+            "Create a new feedback, fitment, or initial QnA entry.\n\n"
+            "Behavior:\n"
+            "- An intake summary is automatically generated using an LLM.\n"
+            "- `bot_id` is required for feedback-related QnA, but optional for `fitment`.\n"
+            "- Sentiment fields are applicable only for feedback QnA."
+        ),
+        request={
+            "application/json": {
+                "type": "object",
+                "required": ["user_id", "qna_type", "qna"],
+                "properties": {
+                    "bot_id": {
+                        "type": "string",
+                        "description": (
+                            "Public identifier of the bot. "
+                            "Required for feedback-related QnA."
+                        ),
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "description": "Participant user ID submitting the QnA.",
+                    },
+                    "qna_type": {
+                        "type": "string",
+                        "enum": ["feedback", "fitment", "initial_qna"],
+                        "description": "Logical category of QnA that controls processing behavior.",
+                    },
+                    "qna": {
+                        "type": "string",
+                        "description": "JSON string representing participant QnA.",
+                        "example": "{\"question\": \"How was your experience?\", \"answer\": \"Great\"}",
+                    },
+                    "is_positive": {
+                        "type": "boolean",
+                        "description": "Sentiment flag (applicable only for feedback QnA).",
+                    },
+                    "is_anonymous": {
+                        "type": "boolean",
+                        "description": "Indicates whether feedback is anonymous.",
+                        "default": False,
+                    },
+                },
+            }
+        },
+        responses={
+            200: OpenApiResponse(
+                description="QnA created successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "message": {"type": "string", "example": "created"},
+                    },
+                },
+            ),
+            400: OpenApiResponse(
+                description="Invalid input or bot not found",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "error": {"type": "string"},
+                    },
+                },
+            ),
+        },
+        tags=["Accounts- UserSignatureBot"],
+    )
+    @action(methods=['GET', 'POST'], detail=False, url_path="get-user-feedback-data")
+    def get_user_feedback_data(self, request, *args, **kwargs):
         """
-        Retrieves or creates user feedback data for a specific bot.
+        WHAT:
+            Retrieve or submit different types of user QnA data related to bot interactions
+            (feedback, fitment, initial intake, etc.).
 
-        Args:
-            request (object): The HTTP request object.
-            method (string): The method to perform, either "get" or "post".
-            feedback_type(string):  nagetive then fetches only critical msg.
-            bot_id (string): The ID of the bot for which to retrieve or create feedback data.
-            user_id (string): The ID of the user for whom to create feedback data (only required for "post" method).
-            qna (string): The question and answer data for the feedback (only required for "post" method).
-            is_positive (boolean): Indicates whether the feedback is positive or not (only required for "post" method).
-            qna_type (string): The type of the feedback (only required for "post" method).
+        WHY:
+            This API centralizes collection and retrieval of user-generated QnA so that
+            feedback, assessments, and intake responses can be analyzed consistently and
+            converted into actionable insights.
 
-        Returns:
-            If the method is "get":
-                A dictionary containing the positive messages data.
-            If the method is "post":
-                A dictionary with a "message" key indicating the success of the creation.
+        HOW:
+            - GET:
+                • Fetches feedback messages or the latest intake summary for a user.
+                • Behavior depends on qna_type, user_id, and feedback_type.
+                • Responses are cached per tenant and request parameters.
+
+            - POST:
+                • Stores a new QnA entry for the given qna_type.
+                • Automatically generates an intake summary using an LLM.
+                • Supports anonymous and sentiment-based feedback.
+
+            All operations are tenant-scoped and do not update existing records.
         """
+
         try:
-            if request.method == 'GET':
-                method = request.query_params.get('method',None)
-                bot_id = request.query_params.get('bot_id',None)
-                feedback_type = request.query_params.get("feedback_type",None)
-                participant_id = request.query_params.get('user_id',None)
-                qna_type = request.query_params.get('qna_type',None)
-                qna = request.query_params.get('qna',None)
-                is_positive = request.query_params.get('is_positive',"False")
-                is_anonymous = request.query_params.get('is_anonymous',"False")
-                
-            elif request.method == 'POST':
-                method = request.data.get('method',None)
-                bot_id = request.data.get('bot_id',None)
-                feedback_type = request.data.get("feedback_type",None)
-                participant_id = request.data.get('user_id',None)
-                qna_type = request.data.get('qna_type',None)
-                qna = request.data.get('qna',None)
-                is_positive = request.data.get('is_positive',"False")
-                is_anonymous = request.data.get('is_anonymous',"False")
+            try:
+                source = validate_user_feedback_input(request)
+                source = dict(source)
+            except ValueError as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-            cache_key = ''
+            method = source.get("method", request.method.lower())
+            bot_id = source.get("bot_id", None)
+            feedback_type = source.get("feedback_type", None)
+            participant_id = source.get("user_id", None)
+            qna_type = source.get("qna_type", None)
+            qna = source.get("qna", None)
+            is_positive = source.get("is_positive", "False")
+            is_anonymous = source.get("is_anonymous", "False")
 
-            data = {}
+            logger.info(f"source: {source}, \n bot_id: {bot_id}, fitment: {qna_type}")
+
+
             signature_bot = None
-            if qna_type != 'fitment':
+            if bot_id:
                 try:
                     signature_bot = SignatureBot.objects.get(deleted=False,tenant_id = self.request.tenant.uid,bot_id=bot_id)
                 except Exception as e:
                     logger.exception(e)
                     return Response({"error":"bot not found"},status=status.HTTP_400_BAD_REQUEST)
-            if method.lower() == 'get':
-                # try:
-                #     feedback_bot_id = SignatureBot.objects.get(tenant_id = self.request.tenant.uid,user_id=signature_bot.user_id,bot_type='feedback_bot').uid
-                #     print(feedback_bot_id)
-                # except Exception as e:
-                #     logger.exception(f"Feedback bot not found {e}")
-                #     data['positive_msgs'] = []
-                #     return Response(data,status=status.HTTP_200_OK)
-                cache_key = generate_cache_key('get-user-feedback-data', bot_id=bot_id, feedback_type=feedback_type, participant_id=participant_id, qna_type=qna_type, tenant_id=request.tenant.uid)
-                
-                # Try to get data from cache
-                cached_data = get_cache(cache_key)
-                if cached_data:
-                    return Response(cached_data, status=status.HTTP_200_OK)
-                
-                # to get latest botqna for a user using participant_id
-                if participant_id:
-                    recent_intake_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,participant_id=participant_id,qna_type=qna_type).order_by('-created').first()
-                    if recent_intake_data:
-                        set_cache(cache_key, data)
-                        return Response({"intake_summary": recent_intake_data.intake_summary,"intake_id":recent_intake_data.uid},status=status.HTTP_200_OK)
-                    else:
-                        return Response({"error": "No Intake found for user."},status=status.HTTP_400_BAD_REQUEST)
-                
-
-                # to get feedback bot's feedback msg using bot_id
-                feedback_data = BotQnA.objects.filter(tenant_id = self.request.tenant.uid,bot_id=signature_bot.uid,qna_type='feedback')
-                msg_data = []
-                for feed in feedback_data:
-                    try:
-                        participant_name = get_user_display_name(
-                            get_user_by_id(feed.participant_id))
-
-                        bot = SignatureBot.objects.filter(delted=False, uid=feed.bot_id).first()
-                        coach_name = "Unknown"
-                        if bot:
-                            coach_name = get_user_display_name(
-                                get_user_by_id(feed.bot_id))
-                        else:
-                            logger.info(f"Bot not found: {feed.bot_id}")
-                            continue
-
-                        
-                    except Exception as e:
-                        logger.info(f"User not found: {feed.participant_id}")
-                        continue
-                    
-                    if feedback_type == "negative":
-                        if not feed.is_positive:
-                            msg_data.append({
-                                "participant_name": participant_name,
-                                "date": feed.created,
-                                "msg": feed.participant_qna,
-                                "participant_id": feed.participant_id,
-                                "is_anonymous": feed.is_anonymous,
-                                "coach_name": coach_name,
-                                "bot_uid": feed.bot_id,
-                                "bot_id": bot.bot_id
-
-                            })
-                    elif feedback_type == 'positive':
-                        if feed.is_positive:
-                            msg_data.append({
-                                "participant_name": participant_name,
-                                "date": feed.created,
-                                "msg": feed.participant_qna,
-                                "participant_id": feed.participant_id,
-                                "is_anonymous": feed.is_anonymous,
-                                "coach_name": coach_name,
-                                "bot_uid": feed.bot_id,
-                                "bot_id": bot.bot_id
-
-                            })
-                    else:
-                        msg_data.append({
-                            "participant_name": participant_name,
-                            "date": feed.created,
-                            "msg": feed.participant_qna,
-                            "participant_id": feed.participant_id,
-                            "is_anonymous": feed.is_anonymous,
-                            "coach_name": coach_name,
-                            "bot_uid": feed.bot_id,
-                            "bot_id": bot.bot_id
-                        })
-                if feedback_type == "negative":
-                    data['critical_msgs'] = msg_data
-                elif feedback_type == 'positive':
-                    data['positive_msgs'] = msg_data
-                else:
-                    data['message'] = msg_data
-
-            elif method.lower() == 'post':
-                
-                logger.info(f"qna : {qna}, ispositive: {is_positive} , is_anonymous: {is_anonymous}")
-
-                intake_summary_prompt = get_intake_summary_prompt(qna)
-                intake_summary = anthropic_completion(intake_summary_prompt,50000)
-
-                BotQnA.objects.create(
-                    tenant_id = self.request.tenant.uid,
-                    participant_id = participant_id,
-                    participant_qna = json.loads(qna),
-                    is_positive = True if is_positive.lower() == 'true' else False,
-                    bot_id = signature_bot.uid if qna_type != 'fitment' else None,
-                    qna_type = qna_type,
-                    intake_summary = intake_summary,
-                    is_anonymous = True if is_anonymous.lower() == 'true' else False
-                )
-                data['message'] = "created"
-
-            set_cache(cache_key, data)
+            
+            data = get_or_create_feedback_helper(
+                method=method,
+                qna=qna,
+                bot_id=bot_id,
+                feedback_type=feedback_type,
+                participant_id=participant_id,
+                qna_type=qna_type,
+                tenant_id=request.tenant.uid,
+                is_positive=is_positive,
+                is_anonymous=is_anonymous,
+                signature_bot=signature_bot
+            )
+            if data.get('error'):
+                return Response(data.get('error'), status=status.HTTP_400_BAD_REQUEST)
+            
             return Response(data,status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -821,184 +1063,187 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error":e},status=status.HTTP_400_BAD_REQUEST)
         
 
-    @action(methods=['GET','POST','PATCH'], detail=False, url_path="coach-coachee-mentor-mentee-profile")
-    def coach_coachee_mentor_mentee_profile(self,request,*args, **kwargs):
+
+    @extend_schema(
+        methods=["GET"],
+        summary="Retrieve profiles",
+        description=(
+            "Retrieve coach / coachee / mentor / mentee profiles.\n\n"
+            "Behavior:\n"
+            "- If `profile_id` is provided, returns a single profile.\n"
+            "- If `user_id` is provided, returns all profiles for the user.\n"
+            "- If `profile_type` is provided, returns approved profiles of that type."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="profile_id",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="Profile UID to fetch a specific profile.",
+            ),
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="User ID to fetch all profiles for the user.",
+            ),
+            OpenApiParameter(
+                name="profile_type",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="Filter approved profiles by profile type.",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Profile data retrieved successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "oneOf": [
+                                {"type": "object"},
+                                {"type": "array", "items": {"type": "object"}},
+                            ]
+                        }
+                    },
+                },
+            ),
+            404: OpenApiResponse(
+                description="Profile not found",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+        },
+        tags=["Accounts- UserProfiles"],
+    )
+    @extend_schema(
+        methods=["PATCH"],
+        summary="Update profile",
+        description=(
+            "Update an existing  profile.\n\n"
+            "- Supports partial updates.\n"
+            "- Can optionally trigger a re-approval workflow."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="profile_id",
+                type=OpenApiTypes.STR,
+                required=True,
+                description="Profile UID to update.",
+            ),
+            OpenApiParameter(
+                name="for_reapproval",
+                type=OpenApiTypes.BOOL,
+                required=False,
+                description=(
+                    "If true, resets approval state and recreates directory entry."
+                ),
+            ),
+        ],
+        request=CoachCoacheeMentorMenteeProfileSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Profile updated successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "oneOf": [
+                                {"type": "object"},
+                                {"type": "array", "items": {"type": "object"}},
+                            ]
+                        }
+                    },
+                },
+            ),
+            400: OpenApiResponse(
+                description="Invalid input or update failed",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+        },
+        tags=["Accounts- UserProfiles"],
+    )
+    @extend_schema(
+        methods=["POST"],
+        summary="Create profile",
+        description=(
+            "Create a new coach / coachee / mentor / mentee profile.\n\n"
+            "- Coachee and mentee profiles are auto-approved.\n"
+            "- Duplicate profiles for the same user are prevented."
+        ),
+        request=CoachCoacheeMentorMenteeProfileSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Profile created successfully",
+                response=CoachCoacheeMentorMenteeProfileSerializer,
+            ),
+            400: OpenApiResponse(
+                description="Profile creation failed",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+        },
+        tags=["Accounts- UserProfiles"],
+    )
+    @action(methods=['GET', 'POST', 'PATCH'], detail=False, url_path="coach-coachee-mentor-mentee-profile")
+    def coach_coachee_mentor_mentee_profile(self, request, *args, **kwargs):
         """
-        Retrieves or creates a coach-coachee-mentor-mentee profile for a user.
+        WHAT:
+            Manage coach-related profiles (coach, coachee, mentor, mentee) within a tenant.
 
-        Args:
-            request (object): The HTTP request object.
+        WHY:
+            Profiles represent a user's role and approval state in the coaching ecosystem.
+            This API centralizes profile creation, retrieval, and updates while enforcing
+            approval workflows and data consistency.
 
-        Returns:
-            dict: A dictionary containing the coach-coachee-mentor-mentee profile data.
+        HOW:
+            - GET:
+                • Retrieve profiles by profile_id, user_id, or profile_type.
+                • Results may be cached for performance.
+
+            - POST:
+                • Create a new profile for a user.
+                • Prevents duplicate profiles per user.
+                • Auto-approves coachee and mentee profiles.
+
+            - PATCH:
+                • Partially update an existing profile.
+                • Optionally trigger a re-approval workflow that resets directory entries.
+
+            All operations are tenant-scoped. Profiles are soft-managed (no hard deletes).
         """
-        def get_profiles_by_user_id(user_id):
-            profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, user_id=user_id)
-            return CoachCoacheeMentorMenteeProfileSerializer(profile, many=True).data
-
-        def get_profile_by_id(profile_id):
-            profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False, uid=profile_id)
-            return CoachCoacheeMentorMenteeProfileSerializer(profile).data
-
-        def get_all_profiles(profile_type=None):
-            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, is_approved=True)
-            if profile_type:
-                profiles = profiles.filter(profile_type=profile_type)
-            return CoachCoacheeMentorMenteeProfileSerializer(profiles, many=True).data
-
 
         # return Response({"data":data},status=status.HTTP_200_OK)
         if request.method == 'GET':
             profile_id = request.query_params.get('profile_id',None)
             user_id = request.query_params.get('user_id',None)
             profile_type = request.query_params.get('profile_type',None)
-            
-            if user_id:
-                try:
-                    cache_key = generate_cache_key('profiles_by_user_id', user_id=user_id)
-                    data = get_cache(cache_key)
-                    if data is None:
-                        data = get_profiles_by_user_id(user_id)
-                        set_cache(cache_key, data)
-                    return Response({"data": data}, status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
-            if profile_id:
-                try:
-                    cache_key = generate_cache_key('profile_by_id', profile_id=profile_id)
-                    data = get_cache(cache_key)
-                    if data is None:
-                        data = get_profile_by_id(profile_id)
-                        set_cache(cache_key, data)
-                    return Response({"data": data}, status=status.HTTP_200_OK)
-                except Exception as e:
-                    logger.exception(e)
-                    return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)
-            else:
-                cache_key = generate_cache_key('all_profiles', profile_type=profile_type)
-                data = get_cache(cache_key)
-                if data is None:
-                    data = get_all_profiles(profile_type)
-                    set_cache(cache_key, data)
+
+            try:
+                data = get_coach_profiles_helper(
+                    profile_id=profile_id,
+                    user_id=user_id,
+                    profile_type=profile_type,
+                )
                 return Response({"data": data}, status=status.HTTP_200_OK)
+            
+            except Exception as e:
+                logger.exception(f"got error in getcoachprofile, {e}")
+                return Response({"error":"profile not found"},status=status.HTTP_404_NOT_FOUND)        
 
         if request.method == 'PATCH':
             try:
                 profile_id = request.query_params.get('profile_id',None)
-                print("*"*100)
-                logger.info(f"data : {request.data}")
-                data = {"tenant_id" : self.request.tenant.uid}
-                data.update(request.data)
-                print(data)
-                profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,uid=profile_id)
-                serializer = CoachCoacheeMentorMenteeProfileSerializer(profile,data=data,partial=True)
-                serializer.is_valid(raise_exception=True)
-
-                # saving bot_data if any before profile sync
-                if data.get('bot_data'):
-
-                    bot_data = json.loads(data.get('bot_data')) if isinstance(data.get('bot_data'),str) else data.get('bot_data')
-                    bot_description = bot_data.get('bot_description')
-                    bot_name = bot_data.get('bot_name')
-
-                    bot_id = bot_data.get('bot_id')
-                    bot = SignatureBot.objects.filter(deleted=False,uid=bot_id).last()
-                    if bot:
-                        bot_att = BotAttribute.objects.get(bot_id=bot.uid)
-                        bot_att.bot_name = bot_name
-                        bot_att.about = bot_description
-                        bot_att.save(update_fields=['bot_name','about'])
-
-                        add_data = bot.data['additional_data']
-                        additional_data = {
-                            "bot_area_of_coaching": bot_data.get('bot_area_of_coaching'),
-                            "bot_description": bot_data.get('bot_description')
-                        }
-                        if add_data:
-                            for key, value in additional_data.items():
-                                add_data[key] = value
-                            bot.data['additional_data'] = add_data
-                            bot.save(update_fields=['data'])
-
-                            
-                serializer.save()
-
                 for_reapproval = request.query_params.get('for_reapproval',None).lower().strip() == 'true' if request.query_params.get('for_reapproval',None) else False
+
+                updated_profile = update_coach_profile_helper(
+                    tenant_id=self.request.tenant.uid,
+                    profile_id=profile_id,
+                    for_reapproval=for_reapproval,
+                    request_data=request.data
+                )
+                logger.info(f"[profile]: {updated_profile}")
                 
-
-                # sending for reapproval to directory page info
-                logger.info(f"sending for reapproval: {request.query_params.get('for_reapproval',None)}, {for_reapproval}")
-
-                directory = DirectoryPageInfo.objects.filter(profile_id=profile_id).first()
-                if directory and for_reapproval:
-
-                    avata_bot_id = directory.avatar_bot_id
-                    bot = SignatureBot.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,bot_id=avata_bot_id).first()
-                    if bot:
-                        bot.is_approved = False
-                        bot.save()
-
-                    # to send reapproval msg
-                    # profile.is_approved_email_sent = False
-                    # profile.save()
-
-
-                    DirectoryPageInfo.objects.create(
-                        name = directory.name,
-                        profile_id = directory.profile_id,
-                        department = directory.department,
-                        bot_type = directory.bot_type,
-                        profile_pic_url = directory.profile_pic_url,
-                        profile_type = directory.profile_type,
-                        description = directory.description,
-                        experience = directory.experience,
-                        expertise = directory.expertise,
-                        status = directory.status,
-                        avatar_bot_id = directory.avatar_bot_id,
-                        feedback_wall = directory.feedback_wall,
-                        skills = directory.skills,
-                        is_visible = directory.is_visible,
-                        is_approved = False,
-                        avatar_snippit = directory.avatar_snippit,
-                        avatar_bot_url = directory.avatar_bot_url,
-                        custom_user_bot_url = directory.custom_user_bot_url,
-                        custom_user_bot_id = directory.custom_user_bot_id,
-                        subject_specific_bot_url = directory.subject_specific_bot_url,
-                        subject_specific_bot_id = directory.subject_specific_bot_id,
-                        subject_specific_bot_snippit= directory.subject_specific_bot_snippit,
-                        timer_enabled = directory.timer_enabled,
-                        time_value_in_days = directory.time_value_in_days,
-                        timer_reset = directory.timer_reset,
-                        visual_tag = directory.visual_tag,
-                        ai_email = directory.ai_email,
-                        integratable_snippet = directory.integratable_snippet,
-                    )
-
-
-                    # directory.save()
-                    try:
-                        subject = "AI Copilot Updation"
-                        html = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">Thank you for updating your AI Copilot/Profile. It is under processing pipeline and you will soon receive a confirmation when it's live. You can always edit the same via the profile section.</p>
-                            """
-
-                        send_email_with_html_template(subject=subject,html_content=html,to_email=profile.email,title=f'Hey {profile.name}!')
-                        html = f"""
-                            <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">{profile.name} - {profile.email} Updated a bot/profile. Please check it out and re-approve it from Django Admin Panel.</p>
-                            """
-                        send_email_with_html_template(subject=subject,html_content=html)
-
-                    except Exception as e:
-                        logger.error(f"Got error in sending email for reapproval : {e}")
-                        send_error_notification("coach_coachee_mentor_mentee_profile",f"Got error in sending email for reapproval : {e}",{"data":data})
-                        
-                    directory.delete()
-                    reset_cache_with_prefix('profiles_by_user_id')
-                    reset_cache_with_prefix('profile_by_id')
-                    reset_cache_with_prefix('all_profiles')
-
-                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
+                return Response({"data":updated_profile},status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
                 send_slack_message({"module": "########### coach_coachee_mentor_mentee_profile ###########", "error": str(e)})
@@ -1020,56 +1265,13 @@ class AccountsViewSet(ApiViewSet,
                 profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=self.request.tenant.uid,user_id=data['user_id'])
                 if profile.count() > 0:
                     return Response({"msg": "Entry already Exist","data": CoachCoacheeMentorMenteeProfileSerializer(profile,many=True).data },status=status.HTTP_200_OK)
-                
-                # _data = data.copy()
-                
-                serializer = CoachCoacheeMentorMenteeProfileSerializer(data=data)
-                serializer.is_valid(raise_exception=True)
-                logger.info(f"serializer data: {serializer.validated_data}")
-                created_profile = serializer.save()
-                
-                low_skill = serializer.validated_data.get("low_rating_characteristics")
-                high_skill = serializer.validated_data.get("high_rating_characteristics")
-                
-                # if None in [low_skill, high_skill]:
-                #     return Response({"error": "low_rating_characteristics and high_rating_characteristics is required"},status=status.HTTP_400_BAD_REQUEST)
-                
-                sync_user_low_high_skills(self.request.tenant.uid, data['user_id'], low_skill, high_skill)
-                
-                if (created_profile.profile_type) in ('coachee','mentee'):
-                    created_profile.is_approved = True
-                    created_profile.save(update_fields=["is_approved"])
-                    
-                send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
-                                f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page")
-                # send_generic_email(f"{created_profile.name} just created {created_profile.profile_type}  Account",
-                #                    f"{created_profile.name} just created {created_profile.profile_type}  Account. check it out on admin panel(https://coach-api-ovh.coachbots.com/custom-admin/) and approve it, to make it display on Directory page",
-                #                    'aadil611ofc@gmail.com')
-                profile_type = created_profile.profile_type
-                if created_profile.is_mentor:
-                    profile_type = ProfileTypeChoice.coach_mentor
+    
 
-                DirectoryPageInfo.objects.create(
-                        name=created_profile.name,
-                        profile_id=created_profile.uid,
-                        department=created_profile.department,
-                        profile_pic_url=created_profile.profile_image_url or "None",
-                        profile_type=profile_type,
-                        description=created_profile.about,
-                        experience=created_profile.experience,
-                        expertise=created_profile.area_domain,
-                        status=StatusChoice.available,
-                        skills=created_profile.high_rating_characteristics,
-                        is_visible= True,
-                        is_approved =  True if (created_profile.profile_type) in ('coachee','mentee') else profile_approved,
-                        ai_email = generate_email(created_profile.name,created_profile.id)
-                        )
-                
-                reset_cache_with_prefix('profiles_by_user_id')
-                reset_cache_with_prefix('profile_by_id')
-                reset_cache_with_prefix('all_profiles')
-                
-                return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(created_profile).data },status=status.HTTP_200_OK)
+                created_profile = create_coach_profile_helper(
+                    data=data,
+                    profile_approved=profile_approved
+                )
+                return Response({'data': created_profile},status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
                 error_msg = f"failed to create profile: {e}\n\n"
@@ -1078,6 +1280,97 @@ class AccountsViewSet(ApiViewSet,
                 send_error_notification("coach_coachee_mentor_mentee_profile",error_msg,{"data":data})
                 return Response({"error":"got error"},status=status.HTTP_400_BAD_REQUEST)
             
+    @extend_schema(
+        methods=["GET"],
+        summary="Get meeting availability",
+        description=(
+            "Retrieve meeting availability for a coach or mentor profile.\n\n"
+            "Provide either `user_id` or `profile_id`.\n"
+            "Exactly one identifier is required."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="User ID linked to the profile",
+            ),
+            OpenApiParameter(
+                name="profile_id",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="Profile UID",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Meeting availability retrieved successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "string",
+                            "example": "Mon–Fri, 10am–5pm IST",
+                        }
+                    },
+                },
+            ),
+            400: OpenApiResponse(
+                description="Invalid input",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+            404: OpenApiResponse(
+                description="Profile not found",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+        },
+        tags=["Accounts- UserProfiles"],
+    )
+    @extend_schema(
+        methods=["POST"],
+        summary="Update meeting availability",
+        description=(
+            "Update meeting availability for a coach or mentor profile.\n\n"
+            "Provide either `user_id` or `profile_id` along with a JSON availability object."
+        ),
+        request=inline_serializer(
+            name="UpdateMeetingAvailability",
+            fields={
+                "user_id": serializers.CharField(required=False),
+                "profile_id": serializers.CharField(required=False),
+                "availability": serializers.JSONField(required=True),
+            },
+        ),
+        examples=[
+            OpenApiExample(
+                name="Availability example",
+                value={
+                    "profile_id": "0f90b242-c412-4b7e-a046-d40c31dd8823",
+                    "availability": {
+                        "from": "2024-10-05T08:46:36.487Z",
+                        "to": "2024-10-05T09:46:36.487Z",
+                        "days_selected": ["Tuesday", "Thursday", "Friday"],
+                        "scheduling_link": "https://calendly.com/deb",
+                    },
+                },
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Meeting availability updated successfully",
+                response=CoachCoacheeMentorMenteeProfileSerializer,
+            ),
+            400: OpenApiResponse(
+                description="Invalid input",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+            404: OpenApiResponse(
+                description="Profile not found",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+        },
+        tags=["Accounts- UserProfiles"],
+    )
     @action(methods=['GET','POST'], detail=False, url_path="update-coach-mentor-meeting-availability")
     def update_coach_mentor_meeting_availability(self,request,*args, **kwargs):
         if request.method == 'GET':
@@ -1094,7 +1387,7 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"data": profile.meeting_availability },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
-                return Response({"error": f"{e.args}"},status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
             
         elif request.method == 'POST':
             user_id = request.data.get('user_id',None)
@@ -1121,16 +1414,27 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"data": CoachCoacheeMentorMenteeProfileSerializer(profile).data },status=status.HTTP_200_OK)
             except Exception as e:
                 logger.exception(e)
-                return Response({"error": f"{e.args}"},status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Something went wrong"}, status=status.HTTP_404_NOT_FOUND)
                     
 
+    @extend_schema(
+        summary="Get Bots",
+        description="Retrieves a list of bots filtered by user, type, or client.",
+        parameters=[
+            OpenApiParameter("user_id", str, description="Filter by User ID"),
+            OpenApiParameter("bot_type", str, description="Filter by Bot Type"),
+            OpenApiParameter("client_name", str, description="Filter by Client Name"),
+            OpenApiParameter("approved_only", str, description="Return only approved bots"),
+        ],
+        tags=["Accounts- UserSignatureBot"]
+    )
     @action(methods=['GET'], detail=False, url_path="get-bots")
     def get_bots(self,request,*args, **kwargs):
         user_id = request.query_params.get('user_id',None)
         bot_type = request.query_params.get('bot_type',None)
         client_name = request.query_params.get('client_name',None)
         approved_only = request.query_params.get('approved_only',None)
-        approved_only = True if approved_only is not None and approved_only in ["true","True"] else False
+        approved_only = True if approved_only is not None and approved_only in ["true","True", True, 1] else False
         tenant_id = self.request.tenant.uid
 
         logger.info(f"################### user_id: {user_id}, bot_type: {bot_type}, client_name: {client_name} , approved_only: {approved_only} ###################")
@@ -1144,106 +1448,32 @@ class AccountsViewSet(ApiViewSet,
         if cached_data is not None:
             return Response({"data": cached_data}, status=status.HTTP_200_OK)
         
-        all_bots = SignatureBot.objects.filter(deleted=False,tenant_id=tenant_id)
-        if approved_only:
-            all_bots = all_bots.filter(is_approved=True)
-        data = []
-
-        if user_id:
-            all_bots = all_bots.filter(user_id=user_id)
-
-        if bot_type:
-            all_bots = all_bots.filter(bot_type=bot_type)
-        
-
-        deepdive_bot_access = None
+        client = None
         if client_name:
-            user_ids = []
-            bot_user_ids = list(all_bots.values_list('user_id',flat=True))
-            for u_id in bot_user_ids:
-                user_email = UserAttribute.objects.get(deleted=False,tenant_id=tenant_id,user_id=u_id).attributes.get('email',None)
-                client = ClientUserInfo.objects.filter(deleted=False,tenant_id=tenant_id,member_emails__contains=user_email).first()
-                if client:
-                    # data.append({"allowed_ips": client.allowed_ips})
-                    if bot_type == BotTypeChoice.deep_dive:
-                        deepdive_bot_access = client.deepdive_accessed_emails.spllit(',') if client.deepdive_accessed_emails else []
-                    if client.client_name == client_name:
-                        user_ids.append(u_id)
+            client = get_object_or_404(
+                ClientUserInfo,
+                deleted=False,
+                tenant_id=tenant_id,
+                client_name=client_name,
+            )
+            
+        data = get_bots_helper(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            bot_type=bot_type,
+            client=client,
+            approved_only=approved_only,
+        )
 
-            logger.info(f"client members ids: {user_ids}")
-            all_bots = all_bots.filter(user_id__in = user_ids)
-
-        for bot in all_bots:
-            serializer = SignatureBotSerializer(bot)
-            bot_att = BotAttribute.objects.get(bot_id=bot.uid)
-            botser = BotAttributeSerializer(bot_att)
-            all_bots_data = {"creator_name":serializer.data.get('creator_name') ,"signature_bot": serializer.data,
-                            "bot_attributes": botser.data}
-            if deepdive_bot_access:
-                all_bots_data['deepdive_access'] = deepdive_bot_access
-            data.append(all_bots_data)
         set_cache(cache_key, data)
         return Response({"data": data},status=status.HTTP_200_OK)
-        
-
-    #************* utility methods ***************
-    def process_and_store_youtube_transcript(self,youtube_links,signature_bot,overwrite=False, deleted_data = {}):
-        extracted_from_youtube = {}
-        extracted_media_data = {}
-        
-        if not isinstance(youtube_links, list):
-            youtube_links = [youtube_links]
-
-        logger.info(f"*************** youtube_links in process_and_store : {youtube_links}")
-
-        transcript = None
-        for link in youtube_links:
-            if link != '':
-                logger.info(f"Gettinggs transcript for youtube link: {link}")
-                try:
-                    for i in range(2):
-                        transcript = get_youtube_transcript(link)
-                        if transcript is not None:
-                            logger.info(f"transcript: {transcript}")
-                            break
-                    if transcript is None:
-                        logger.info(f"Could not get transcript for youtube link: {link} from package so trying to download and transcribe")
-                        transcript = download_and_transcribe_audio(link)
-                        logger.info(f"Transcript after download and transcribe : {transcript}")
-                    if signature_bot.bot_type in [BotTypeChoice.avatar_bot, BotTypeChoice.subject_specific_bot]:
-                        extracted_media_data[link] = transcript
-                        transcript = get_document_summary(transcript)
-                    extracted_from_youtube[link] = transcript
-                except Exception as e:
-                    logger.exception(e)
-                    extracted_from_youtube[link] = {"error": "Restricted video. error in extracting transcript. Please try another."}
-            
-        # extracted_media_data['extracted_from_youtube'] = extracted_from_youtube
-        logger.info(f"extratedz youtube: {extracted_from_youtube}")
-        signature_bot.refresh_from_db()
-        bot_media_data = signature_bot.data['media_data']
-        if overwrite and extracted_from_youtube:
-            bot_media_data['extracted_from_youtube'] = extracted_from_youtube
-        else:
-            prev_extracted_from_youtube = bot_media_data.get('extracted_from_youtube',{})
-            # if "youtube_links" in deleted_data:
-            #     for link in deleted_data["youtube_links"].strip().split(","):
-            #         prev_extracted_from_youtube.pop(link.strip(),None)
-            bot_media_data['extracted_from_youtube'] = {**prev_extracted_from_youtube,**extracted_from_youtube}
-
-        signature_bot.data['media_data'] = bot_media_data
-        signature_bot.save(update_fields=["data"])
-
-        bot_att = BotAttribute.objects.get(bot_id=signature_bot.uid)
-        bot_att.refresh_from_db()
-        bot_media_data = bot_att.extracted_documents if bot_att.extracted_documents else {}
-        bot_media_data['extracted_from_youtube'] = {**bot_media_data.get('extracted_from_youtube',{}),**extracted_media_data}
-        bot_att.extracted_documents = bot_media_data
-        bot_att.save(update_fields=["extracted_documents"])
-        
-        return transcript
 
     
+    @extend_schema(
+        summary="Create or Update Bot",
+        description="Creates a new bot or updates an existing one. Supports multipart/form-data for file uploads (PDFs, Docs). Accepts complex JSON configuration in `media_data` and `attributes`.",
+        tags=["Accounts- UserSignatureBot"]
+    )
     @action(methods=['POST','PATCH'],detail=False, url_path="create-bot-by-details")
     def create_bot_by_details(self, request, *args, **kwargs):
         """
@@ -2038,7 +2268,9 @@ class AccountsViewSet(ApiViewSet,
                         
                         extracted_media_data['extracted_from_youtube'] = extracted_from_youtube """
                     
-                        threading.Thread(target=self.process_and_store_youtube_transcript,args=(youtube_links,signature_bot,is_overwrite, deleted_data)).start()
+                        threading.Thread(
+                            target=process_and_store_youtube_transcript,
+                            args=(youtube_links,signature_bot,is_overwrite, deleted_data)).start()
 
 
                     if 'article_links' in media_data:
@@ -2288,6 +2520,10 @@ class AccountsViewSet(ApiViewSet,
             send_error_notification("create_bot_by_details",error_msg,{})
             return Response({"msg":f"Got error : {e}" },status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="User Competency Details",
+        tags=["Accounts- User"]
+    )
     @action(methods=['GET','POST'],detail=False, url_path="user-competency-details")
     def user_competency_details(self,request,*args, **kwargs):
         """
@@ -2340,7 +2576,10 @@ class AccountsViewSet(ApiViewSet,
         except Exception as e:
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
-
+    @extend_schema(
+        summary="Get/Create IDPs",
+        tags=["Accounts- UserIDP"]
+    )
     @action(methods=['GET','POST','PATCH'],detail=False, url_path="get_or_create_idp")
     def get_or_create_idp(self,request,*args, **kwargs):
         """
@@ -2432,6 +2671,10 @@ class AccountsViewSet(ApiViewSet,
             return Response({"msg": "got_error"},status=status.HTTP_400_BAD_REQUEST)
           
           
+    @extend_schema(
+        summary="Get Directory Information",
+        tags=["Accounts- UserNetwordDirectory"]
+    )
     @action(methods=['GET'],detail=False, url_path="get-directory-informations")
     def get_directory_informations(self,request,*args, **kwargs):
         """
@@ -2537,6 +2780,14 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error": f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
         
 
+    @extend_schema(
+        summary="Participant Leaderboard Report",
+        parameters=[
+            OpenApiParameter("email", str, description="Client email to filter participants"),
+            OpenApiParameter("by_category", str, description="If set, separates report by coach/coachee"),
+        ],
+        tags=['Accounts- User']
+    )
     @action(methods=['GET'],detail=False,url_path="participant-leader-board-report")
     def participant_leader_board_report(self,request, *args, **kwargs):
         """
@@ -2606,10 +2857,23 @@ class AccountsViewSet(ApiViewSet,
                 
                 user_ids = Identity.objects.filter(deleted=False,tenant_id=request.tenant.uid,value__in = emails)
                 user_ids_list = list(user_ids.values_list('user_id', flat=True))
+                
+                users_map = User.objects.in_bulk(user_ids_list, field_name='uid')
                 user_actions = UserActionInfo.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
+                user_actions_map = {ua.user_id: ua for ua in user_actions}
+                
+                profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True,tenant_id=request.tenant.uid,user_id__in=user_ids_list)
+                profiles_map = {}
+                for p in profiles:
+                    if p.user_id not in profiles_map:
+                        profiles_map[p.user_id] = []
+                    profiles_map[p.user_id].append(p)
+
                 data = []
                 for user_action in user_actions:
-                    user = get_user_by_id(user_action.user_id)
+                    user = users_map.get(user_action.user_id)
+                    if not user: continue
+
                     avatar_bot_count = len(get_list_from_string(user_action.avatar_ids))
                     subject_specific_bot_count = len(get_list_from_string(user_action.avatar_ids))
                     subject_matter_count = len(get_list_from_string(user_action.subject_matter_bot_ids))
@@ -2630,8 +2894,8 @@ class AccountsViewSet(ApiViewSet,
                         "session_notes_count": user_action.session_notes_count,
                         "profile_type": "coachee"
                     }
-                    profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True,tenant_id=request.tenant.uid,user_id=user.uid)
-                    for p in profiles:
+                    user_profiles = profiles_map.get(user.uid, [])
+                    for p in user_profiles:
                         temp['profile_type'] = p.profile_type
                         temp['is_mentor'] = p.is_mentor
                         temp['created'] = p.created
@@ -2640,12 +2904,13 @@ class AccountsViewSet(ApiViewSet,
                     temp['total_score'] = temp['total_bots'] + temp['session_notes_count'] + temp['total_simulations'] + temp['total_bot_interactions']
                     data.append(temp)
 
-                existing_user_ids = set(user_action.user_id for user_action in user_actions)
+                existing_user_ids = set(user_actions_map.keys())
                 # Iterate through user_ids and include those not present in user_actions
                 for user_id in user_ids_list:
                     if user_id not in existing_user_ids:
-                        user = get_user_by_id(user_id)
-                        # profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,tenant_id=request.tenant.uid,user_id=user_id).first()
+                        user = users_map.get(user_id)
+                        if not user: continue
+
                         temp = {
                             "name": get_user_display_name(user),
                             "user_id": user.uid,
@@ -2659,8 +2924,8 @@ class AccountsViewSet(ApiViewSet,
                             "profile_type": 'coachee',
                             'total_score': 0
                         }
-                        profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,is_approved=True, tenant_id=request.tenant.uid, user_id=user.uid)
-                        for p in profiles:
+                        user_profiles = profiles_map.get(user.uid, [])
+                        for p in user_profiles:
                             temp['profile_type'] = p.profile_type
                             temp['is_mentor'] = p.is_mentor
                             temp['created'] = p.created
@@ -2705,6 +2970,18 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
+    @extend_schema(
+        summary="Coach-Coachee Connections",
+        parameters=[
+            OpenApiParameter("connection_id", str, description="Connection UID"),
+            OpenApiParameter("user_id", str, description="User ID"),
+            OpenApiParameter("coach_id", str, description="Coach Profile ID"),
+            OpenApiParameter("coachee_id", str, description="Coachee Profile ID"),
+            OpenApiParameter("email", str, description="Client email for filtering"),
+        ],
+        tags=["Accounts- UserProfiles"]
+        
+    )
     @action(methods=['GET','POST','PATCH'],detail=False, url_path="coach-coachee-connections")
     def coach_coachee_connections(self, request, *args, **kwargs):
         """
@@ -2957,6 +3234,10 @@ class AccountsViewSet(ApiViewSet,
                 return Response({"error":f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
             
             
+    @extend_schema(
+        summary="Feedback Leaderboard Report",
+        tags=["Accounts- UserSignatureBot"]
+    )
     @action(methods=['GET'],detail=False,url_path="feedback-leaderboard-report")
     def feedback_leader_board(self,request, *args, **kwargs):
         """
@@ -3085,6 +3366,10 @@ class AccountsViewSet(ApiViewSet,
 
 
 
+    @extend_schema(
+        summary="User Can Join As",
+        tags=['Accounts- User']
+    )
     @action(methods=['GET','POST'],detail=False,url_path="user-can-join-as")
     def user_can_join_as(self, request, *args, **kwargs):
         """
@@ -3172,7 +3457,69 @@ class AccountsViewSet(ApiViewSet,
         
 
 
-    @action(methods=['GET'],detail=False,url_path="user-bot-connection-status")
+    @extend_schema(
+        summary="Get user–coach connection status",
+        description=(
+            "Checks whether an **accepted connection** exists between a user (coachee) "
+            "and a coach within the same tenant.\n\n"
+            "Both `user_id` and `coach_user_id` must be provided as query parameters. "
+            "If an accepted connection exists, the API returns `connected: true`."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="User ID of the coachee"
+            ),
+            OpenApiParameter(
+                name="coach_user_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="User ID of the coach"
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Accepted connection exists",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "connected": {"type": "boolean", "example": True}
+                    }
+                },
+            ),
+            400: OpenApiResponse(
+                description="Missing required query parameters",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "type": "string",
+                            "example": "user_id and coach_user_id are required"
+                        }
+                    }
+                },
+            ),
+            404: OpenApiResponse(
+                description="Connection not found or not accepted",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "connected": {"type": "boolean", "example": False},
+                        "error": {
+                            "type": "string",
+                            "example": "connection not found"
+                        }
+                    }
+                },
+            ),
+        },
+        tags=["Accounts- UserProfiles"],
+    )
+    @action(methods=["GET"], detail=False, url_path="user-bot-connection-status")
     def user_bot_connection_status(self, request, *args, **kwargs):
         """
     Retrieves the connection status between a user and a coach based on their respective user IDs.
@@ -3219,6 +3566,11 @@ class AccountsViewSet(ApiViewSet,
         
 
 
+    @extend_schema(
+        summary="Get Skill and Role Bots",
+        description="Retrieves a list of bots categorized as skill or role bots.",
+        tags=["Accounts- UserSignatureBot"]
+    )
     @action(methods=['GET'], detail=False, url_path='get-skill-and-role-bots')
     def get_skill_and_role_bots(self, request, *args, **kwargs):
         """
@@ -3281,7 +3633,68 @@ class AccountsViewSet(ApiViewSet,
             return Response({"message": f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-    @action(methods=['POST'], detail=False, url_path='save-liked-profile')
+    @extend_schema(
+        summary="Save or revert liked profile",
+        description=(
+            "Allows a user to like or unlike a profile.\n\n"
+            "- When `is_revert` is `false` (default), the profile is marked as liked.\n"
+            "- When `is_revert` is `true`, the existing like is reverted.\n\n"
+            "This operation is idempotent and scoped to the current tenant."
+        ),
+        request={
+            "application/json": {
+                "type": "object",
+                "required": ["profile_id", "user_id"],
+                "properties": {
+                    "profile_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Profile ID to like or unlike",
+                        "example": "30831bed-06c5-4975-84fc-4697a3ff57a6",
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User performing the action",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                    },
+                    "is_revert": {
+                        "type": "boolean",
+                        "description": "Set to true to remove an existing like",
+                        "example": False,
+                    },
+                },
+            }
+        },
+        responses={
+            200: OpenApiResponse(
+                description="Like saved or reverted successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string",
+                            "example": "saved",
+                        }
+                    },
+                },
+            ),
+            400: OpenApiResponse(
+                description="Invalid input or profile not found",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string",
+                            "example": "profile Not Found",
+                        }
+                    },
+                },
+            ),
+        },
+        tags=["Accounts- UserProfiles"]
+    )
+    @action(methods=["POST"], detail=False, url_path="save-liked-profile")
     def save_liked_profile(self, request, *args, **kwargs):
         """
         Saves or reverts a liked profile based on the user's action.
@@ -3316,7 +3729,8 @@ class AccountsViewSet(ApiViewSet,
         try:
             profile_id = request.data.get('profile_id', None)
             user_id = request.data.get('user_id', None)
-            is_revert = request.data.get('is_revert',None)
+            is_revert = request.data.get("is_revert", False)
+            is_revert = True if is_revert in [True, 1, 'true', 'True'] else False
             tenant_id = request.tenant.uid
             try:
                 profile = CoachCoacheeMentorMenteeProfile.objects.get(deleted=False,tenant_id=tenant_id,uid=profile_id)
@@ -3324,7 +3738,7 @@ class AccountsViewSet(ApiViewSet,
                 logger.error(f"profile not found for {profile_id}")
                 return Response({"message": f"profile Not Found"},status=status.HTTP_400_BAD_REQUEST)
             
-            if is_revert and is_revert.lower() == 'true':
+            if is_revert:
                 user_ids = [i.strip() for  i in profile.admirer_user_ids.split(',')]
                 if user_id in user_ids:
                     user_ids.remove(user_id)
@@ -3371,6 +3785,108 @@ class AccountsViewSet(ApiViewSet,
         
         
         
+
+
+    @extend_schema(
+        methods=["GET"],
+        summary="Get coach average rating",
+        description=(
+            "Fetches the average rating of a coach based on ratings "
+            "submitted by coachees within the current tenant."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="coach_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Coach profile ID",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Average rating fetched successfully",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "rating": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 4.5,
+                        },
+                        "total_rating": {
+                            "type": "integer",
+                            "example": 10,
+                        },
+                    },
+                },
+            ),
+            400: OpenApiResponse(
+                description="Missing or invalid coach_id",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "error": {"type": "string", "example": "coach_id is required"},
+                    },
+                },
+            ),
+        },
+        tags=["Accounts- UserProfiles"]
+    )
+
+    @extend_schema(
+        methods=["POST"],
+        summary="Submit or update coach rating",
+        description=(
+            "Creates or updates a rating for a coach by a coachee. "
+            "If a rating already exists, it is updated."
+        ),
+        request={
+            "application/json": {
+                "type": "object",
+                "required": ["coach_id", "coachee_id", "rating"],
+                "properties": {
+                    "coach_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Coach profile ID",
+                    },
+                    "coachee_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Coachee profile ID",
+                    },
+                    "rating": {
+                        "type": "number",
+                        "format": "float",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "example": 4.5,
+                    },
+                },
+            }
+        },
+        responses={
+            200: OpenApiResponse(
+                description="Rating updated successfully",
+                response=CoachCoacheeRatingSerializer,
+            ),
+            201: OpenApiResponse(
+                description="Rating created successfully",
+                response=CoachCoacheeRatingSerializer,
+            ),
+            400: OpenApiResponse(
+                description="Invalid coach/coachee or bad input",
+                response={
+                    "type": "object",
+                    "properties": {
+                        "error": {"type": "string"},
+                    },
+                },
+            ),
+        },
+        tags=["Accounts- UserProfiles"]
+    )
     @action(methods=['GET','POST'], detail=False, url_path='coach-rating')
     def coach_rating(self, request, *args, **kwargs):
         """
@@ -3463,6 +3979,16 @@ class AccountsViewSet(ApiViewSet,
                 return Response(serializer.data,status=status.HTTP_201_CREATED)
 
 
+    @extend_schema(
+        summary="Automation Cleanup",
+        parameters=[
+            OpenApiParameter("verify_hash", str, description="Verification hash for cleanup process", required=True),
+            OpenApiParameter("user_uid", str, description="User UID for cleanup"),
+            OpenApiParameter("is_delete_user", bool, description="Flag indicating whether to delete the user"),
+            OpenApiParameter("emails_to_delete", str, description="Comma-separated list of emails to delete"),
+        ],
+        tags=["Accounts- System"]
+    )
     @action(methods=['POST'], detail=False, url_path='automation-cleanup')
     def automation_cleanup(self, request, *args, **kwargs):
         """
@@ -3492,7 +4018,8 @@ class AccountsViewSet(ApiViewSet,
         {
             "verify_hash": "c2FtcGxlLWNvZGUtZm9yLXByb3RlY3Rpb24tYW5kLXZhbGlkYXRpb24K",
             "user_uid": "12345",
-            "is_delete_user": true
+            "is_delete_user": true,
+            "emails_to_delete": "bag@gmail.com,xyz@gmail.com"
         }
 
         Response:
@@ -3538,67 +4065,6 @@ class AccountsViewSet(ApiViewSet,
 
             
             
-        # def delete_user_related_resources(user_uid):
-        #     profiles = CoachCoacheeMentorMenteeProfile.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-        #     for profile in profiles:
-                
-        #         # delete connections if user has coachee profile
-        #         connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
-        #         for connection in connections:
-        #             connection.delete()
-                    
-        #         # delete connections if user has coach profile
-        #         connections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
-        #         for connection in connections:
-        #             connection.delete()
-
-        #         # delete directorypage for this profile
-        #         dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user_uid])
-        #         for dir_info in dir_infos:
-        #             dir_info.delete()
-                    
-        #         profile.delete()
-            
-        #     # delete bots if user has any
-        #     bots = SignatureBot.objects.filter(tenant_id=tenant_id,user_id=user_uid)
-        #     for bot in bots:
-        #         print(bot.bot_type)
-        #         # delete bot related resources
-        #         bot_attributes = BotAttribute.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
-        #         for bot_attribute in bot_attributes:
-        #             bot_attribute.delete()
-                    
-        #         bot_qnas = BotQnA.objects.filter(tenant_id=tenant_id,bot_id=bot.bot_id)
-        #         for bot_qna in bot_qnas:
-        #             bot_qna.delete()
-                    
-                
-        #         bot.delete()
-
-        #     if user_uid:
-        #         with transaction.atomic():
-        #             UserActionInfo.objects.filter(tenant_id=tenant_id, user_id=user_uid).delete()
-        #             TestAttemptSession.objects.filter(tenant_id=tenant_id, participant_id=user_uid).update(deleted=True)
-        #             SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentee_id=user_uid).delete()
-        #             SessionNotesRecommendations.objects.filter(tenant_id=tenant_id, mentor_id=user_uid).delete() 
-        #             # Test.objects.filter(tenant_id=tenant_id, creator_user_id=user_uid).update(deleted=True)
-        #             # Test.objects.filter(tenant_id=tenant_id, assigned_to=user_uid).update(deleted=True)
-
-
-
-        #     try:
-        #         identity = Identity.objects.get(user_id=user_uid)
-        #         user_email = identity.value
-        #         clients = ClientUserInfo.objects.filter(tenant_id=tenant_id, member_emails__contains=user_email)
-        #         for client in clients:
-        #             add_or_remove_emails_from_client(client,'member_emails',user_email,True)
-        #             add_or_remove_emails_from_client(client,'demo_ids',user_email,True)
-        #     except Exception as e:
-        #         logger.exception(f"failed to delete client for the user {user_uid}: {e}")
-
-        #     #deleting test created by user_uid
-
-
         
         try:
             if emails_to_delete:
@@ -3629,6 +4095,15 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(e)
             return Response({"error":f"got error {e}"},status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Client ID User Modification",
+        description="GET: List clients or client user data. POST: Update user's client ID or disable user.",
+        parameters=[
+            OpenApiParameter("all_clients", str, description="If present, lists all clients"),
+            OpenApiParameter("client_name", str, description="Filter by client name"),
+        ],
+        tags=["Accounts- UserProfiles"]
+    )
     @action(methods=['GET','POST'], detail=False, url_path='client_id_user_modification')
     def client_id_user_modification(self, request, *args, **kwargs):
         """
@@ -3742,6 +4217,11 @@ class AccountsViewSet(ApiViewSet,
             # reset_cache_with_prefix("all_clients")
             return Response({'msg': 'updated'}, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Create or Assign Client ID",
+        description="Assigns an email to a client, optionally creating the client if it doesn't exist.",
+        tags=["Accounts- UserProfiles"]
+    )
     @action(methods=['POST'], detail=False, url_path='create-or-assign-client-id')
     def create_or_assign_client(self, request, *args, **kwargs):
         """
@@ -3790,6 +4270,11 @@ class AccountsViewSet(ApiViewSet,
             return Response({'msg': f'assigned {email} to {client_name}'}, status=status.HTTP_200_OK)
 
 
+    @extend_schema(
+        summary="Create, Update, or Get Client ID",
+        description="Manages client entities. POST to create, PATCH to update, GET to retrieve.",
+        tags=["Accounts- UserProfiles"]
+    )
     @action(methods=['POST','GET','PATCH'], detail=False, url_path='get-create-or-update-client-id')
     def create_client_id(self, request, *args, **kwargs):
         """
@@ -3919,6 +4404,10 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(f"Error creating client: {e}")
             return Response({'msg':f"Error create-client-id: {e}"},status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Update User Account",
+        tags=['Accounts- User']
+    )
     @action(methods=['PATCH'], detail=False, url_path='update-user-account')
     def update_user_account(self, request, *args, **kwargs):
         """
@@ -3985,6 +4474,11 @@ class AccountsViewSet(ApiViewSet,
             return Response({'msg':f"Error update_user_account: {e}"},status=status.HTTP_400_BAD_REQUEST)
         
     
+    @extend_schema(
+        summary="Get Low/High Skills",
+        description="Retrieves high and low skills for a user.",
+        tags=["Accounts- UserProfiles"]
+    )
     @action(methods=['GET','POST'], detail=False, url_path='get_low_high_skills')
     def get_low_high_skills(self, request, *args, **kwargs):
         """
@@ -4043,6 +4537,10 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
         
+    @extend_schema(
+        summary="Profile Approvals",
+        tags=["Accounts- UserProfiles"]
+    )
     @action(methods=['GET','PATCH'], detail=False, url_path='profile_approvals')
     def profile_approvals(self, request, *args, **kwargs):
         """
@@ -4142,61 +4640,105 @@ class AccountsViewSet(ApiViewSet,
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
         
         
-
+    @extend_schema(
+        summary="Export user details",
+        description=(
+            "Export detailed user information as an Excel file.\n\n"
+            "This endpoint aggregates user data across identities, profiles, "
+            "connections, simulations, and interactions.\n\n"
+            "**Output**: An Excel file containing flattened user-level analytics."
+        ),
+        tags=["Accounts- User"],
+        parameters=[
+            OpenApiParameter(
+                name="from",
+                type=OpenApiTypes.DATE,
+                required=False,
+                description="Filter users created on or after this date (YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="to",
+                type=OpenApiTypes.DATE,
+                required=False,
+                description="Filter users created on or before this date (YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="user_email",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="Filter by a specific user email",
+            ),
+            OpenApiParameter(
+                name="client_id",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="Client identifier to filter users belonging to a client (client_name)",
+            ),
+            OpenApiParameter(
+                name="user_type",
+                type=OpenApiTypes.STR,
+                required=False,
+                description="Filter by profile type (coach, coachee, mentor, mentee)",
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                description="Excel file containing user details",
+                response=OpenApiTypes.BINARY,
+            ),
+            400: OpenApiResponse(
+                description="Invalid filters or request",
+                response={"type": "object", "properties": {"error": {"type": "string"}}},
+            ),
+        },
+    )
     @action(methods=['GET'], detail=False, url_path='get-user-details')
     def get_user_details(self, request, *args, **kwargs):
         """
-        ### Method: get_user_details
+        Export detailed user analytics as an Excel file.
 
-        #### Objective:
-        This method retrieves user details based on specified filters like date range, user email, client ID, and user type. It aims to provide a comprehensive overview of user activities and profiles within the system.
+        WHAT:
+            Generates an Excel report containing user-level information such as:
+            - User identity and email
+            - Client association
+            - Profile type and approval status
+            - Intake/profile data
+            - Simulations created
+            - Connections count
+            - Conversation and interaction metrics
+            - Feedback statistics
+            - Bot usage counts
 
-        #### Process:
-        1. Accepts query parameters for filtering user details.
-        2. Retrieves users based on the provided filters.
-        3. Fetches related information like identity, profile, and user action details.
-        4. Constructs a structured response containing user details, interactions, connections, and bot counts.
-        5. Flattens the data for easy processing and analysis.
-        6. Generates an Excel file with the formatted user details.
+        WHY:
+            This endpoint is intended for admins and operations teams to:
+            - Analyze user engagement
+            - Audit onboarding and approvals
+            - Measure coaching and simulation adoption
+            - Export data for reporting or compliance needs
 
-        #### Input Requirements:
-        - Query parameters: 'from' (start date), 'to' (end date), 'user_email', 'client_id', 'user_type'.
-        - User data including creation date, identity, profile, and user action information.
+        HOW:
+            1. Filters users by date range, client, email, or profile type.
+            2. Resolves latest identity, profile, and action records per user.
+            3. Aggregates related metrics (connections, bots, simulations).
+            4. Flattens the data into a tabular structure.
+            5. Returns the result as a downloadable Excel file.
 
-        #### Expected Output:
-        - A structured response with user details, interactions, connections, and bot counts.
-        - An Excel file ('formatted_output.xlsx') containing formatted user details.
+        INPUT (Query Params):
+            - from (YYYY-MM-DD): Optional start date filter
+            - to (YYYY-MM-DD): Optional end date filter
+            - user_email: Optional email filter
+            - client_id: Optional client filter
+            - user_type: Optional profile type filter
 
-        #### Example:
-        GET /get-user-details?from=2022-01-01&to=2022-12-31&client_id=ClientA&user_type=coachee
+        OUTPUT:
+            - Excel file containing one row per user with aggregated metrics
 
-        Response:
-        {
-            "data": [
-                {
-                    "client_id": "ClientA",
-                    "intake_date": "2022-05-15",
-                    "user_email": "user@example.com",
-                    "user_type": "coachee",
-                    "simulations_created": 3,
-                    "approval_status": true,
-                    "connections_count": 2,
-                    "intake_data": { "profile_details": { ... } },
-                    "conversation_count": 10,
-                    "interaction_count": 20,
-                    "feedback_given": 5,
-                    "feedback_received": 8,
-                    "knowledge_bot_count": 2,
-                    "deep_dive_bot_count": 1,
-                    "avatar_bot_count": 3
-                },
-                ...
-            ]
-        }
-
-        Excel File:
-        - Download 'formatted_output.xlsx' containing the formatted user details.
+        NOTES:
+            - Tenant-scoped
+            - Uses latest identity/profile/action per user
+            - No data mutation is performed
         """
+
         try:
             from_date = request.query_params.get('from',None)
             to_date = request.query_params.get('to',None)
@@ -4237,13 +4779,44 @@ class AccountsViewSet(ApiViewSet,
                 from_date = datetime.datetime.strptime(from_date, "%Y-%m-%d")
                 to_date = datetime.datetime.strptime(to_date, "%Y-%m-%d")
                 users = users.filter(created__gte=from_date,created__lte=to_date)
+            
+            user_uids = list(users.values_list('uid', flat=True))
+            
+            identities = Identity.objects.filter(user_id__in=user_uids)
+            identities_map = {}
+            for i in identities:
+                if i.user_id not in identities_map or i.id > identities_map[i.user_id].id:
+                    identities_map[i.user_id] = i
+            
+            profiles = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False, user_id__in=user_uids)
+            profiles_map = {}
+            for p in profiles:
+                if p.user_id not in profiles_map or p.id > profiles_map[p.user_id].id:
+                    profiles_map[p.user_id] = p
+            
+            user_actions = UserActionInfo.objects.filter(deleted=False, user_id__in=user_uids)
+            user_actions_map = {}
+            for ua in user_actions:
+                if ua.user_id not in user_actions_map or ua.id > user_actions_map[ua.user_id].id:
+                    user_actions_map[ua.user_id] = ua
+            
+            created_tests_counts = Test.objects.filter(tenant_id=tenant_id, deleted=False, creator_user_id__in=user_uids).values('creator_user_id').annotate(count=Count('uid'))
+            created_tests_map = {item['creator_user_id']: item['count'] for item in created_tests_counts}
+            
+            profile_uids = [p.uid for p in profiles]
+            coachee_conn_counts = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id, coachee_id__in=profile_uids).values('coachee_id').annotate(count=Count('uid'))
+            coach_conn_counts = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id, coach_id__in=profile_uids).values('coach_id').annotate(count=Count('uid'))
+            conn_counts_map = {}
+            for item in coachee_conn_counts: conn_counts_map[item['coachee_id']] = conn_counts_map.get(item['coachee_id'], 0) + item['count']
+            for item in coach_conn_counts: conn_counts_map[item['coach_id']] = conn_counts_map.get(item['coach_id'], 0) + item['count']
                 
             user_details = []
             for user in users:
-                identity = Identity.objects.filter(user_id=user.uid).order_by('id').last()
-                profile = CoachCoacheeMentorMenteeProfile.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
-                user_action_info = UserActionInfo.objects.filter(deleted=False,user_id=user.uid).order_by('id').last()
-                # dir_infos = DirectoryPageInfo.objects.filter(profile_id__in=[profile.uid, user.uid])
+                identity = identities_map.get(user.uid)
+                if not identity: continue
+                
+                profile = profiles_map.get(user.uid)
+                user_action_info = user_actions_map.get(user.uid)
                 
                 user_detail = {
                     'client_id': client_id if client_id else email_client_map.get(identity.value),
@@ -4252,15 +4825,12 @@ class AccountsViewSet(ApiViewSet,
                     'user_type': profile.profile_type if profile else None
                 }
                 
-                created_tests = Test.objects.filter(tenant_id=tenant_id, deleted=False, creator_user_id=user.uid)
-                user_detail['simulations_created'] = created_tests.count()
+                user_detail['simulations_created'] = created_tests_map.get(user.uid, 0)
                 
                 profile_specific_fields = []
                 if profile:
                     user_detail['approval_status'] = profile.is_approved
-                    coacheeconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coachee_id=profile.uid)
-                    coachconnections = CoachCoacheeConnection.objects.filter(tenant_id=tenant_id,coach_id=profile.uid)
-                    user_detail['connections_count'] = coacheeconnections.count() + coachconnections.count()
+                    user_detail['connections_count'] = conn_counts_map.get(profile.uid, 0)
                     user_detail['intake_data'] = CoachCoacheeMentorMenteeProfileSerializer(profile).data
 
                     
@@ -4283,66 +4853,17 @@ class AccountsViewSet(ApiViewSet,
                 
             data = user_details
 
-
-            def flatten_dict(d, parent_key='', sep='_'):
-                items = []
-                for k, v in d.items():
-                    new_key = f"{parent_key}{sep}{k}" if parent_key else k
-                    if isinstance(v, MutableMapping):
-                        items.extend(flatten_dict(v, new_key, sep=sep).items())
-                    else:
-                        items.append((new_key, v))
-                return dict(items)
-
-            # Client ID, Date created, user Name, Email ID, Profile Type, Connections, Intake form data, Report links.
-            # Define the specific fields to keep first in order
-            specific_fields = ["client_id", "intake_date","intake_data_name","user_email","user_type","connections_count", "details_user_email", "details_user_type"]
-
-            # Flatten each dictionary in the list
-            flattened_data = [flatten_dict(item) for item in data]
-
-            # Collect all unique keys from the flattened dictionaries
-            all_fieldnames = set()
-            for item in flattened_data:
-                all_fieldnames.update(item.keys())
-
-            # Ensure the specific fields are first, followed by the rest of the fields
-            fieldnames = specific_fields + [field for field in all_fieldnames if field not in specific_fields]
-
-            # Create a workbook and a worksheet
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "User Details"
-
-            # Write the header row
-            header_font = Font(bold=True)
-            for col_num, fieldname in enumerate(fieldnames, 1):
-                cell = ws.cell(row=1, column=col_num, value=fieldname)
-                cell.font = header_font
-                ws.column_dimensions[cell.column_letter].width = 15  # Set column width
-
-            # Write the data rows
-            for row_num, item in enumerate(flattened_data, start=2):
-                for col_num, fieldname in enumerate(fieldnames, start=1):
-                    ws.cell(row=row_num, column=col_num, value=item.get(fieldname))
-
-            # Save the workbook to a file
-            filename = "formatted_output.xlsx"
-            wb.save(filename)
-            
-            with open('formatted_output.xlsx', 'rb') as fh:
-                file_response = HttpResponse(
-                    fh.read(), content_type="text/csv", status=200)
-                file_response['Content-Disposition'] = 'inline; filename=' + \
-                    os.path.basename('formatted_output.xlsx')
-
-            return file_response
-            # return Response(file_response, status=status.HTTP_200_OK)
+            return generate_user_details_excel(data)
         except Exception as e:
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
         
         
+    @extend_schema(
+        summary="Generate Code/Text Prompts",
+        description="Generates simulation scenarios (code and text prompts) using LLMs.",
+        tags=["Accounts- System"]
+    )
     @action(methods=['GET'], detail=False, url_path='code-promp_text-prompt')
     def code_text_prompt(self, request, *args, **kwargs):
         """
@@ -4488,6 +5009,15 @@ class AccountsViewSet(ApiViewSet,
         return Response({"set_count":{"code_prompt":len(code_prompt_set),"text_prompt":len(text_prompt_set)},"code_prompt_set": code_prompt_set, "text_prompt_set": text_prompt_set}, status=status.HTTP_200_OK)
 
 
+    @extend_schema(
+        summary="Save Webhook URL",
+        description="Saves a webhook URL for a specific client.",
+        parameters=[
+            OpenApiParameter("webhook_url", str, description="The Webhook URL"),
+            OpenApiParameter("client_id", str, description="Client ID"),
+        ],
+        tags=['Accounts- ClientUser']
+    )
     @action(methods=['GET','POST'], detail=False, url_path='save-webhook-url')
     def save_webhook_url(self, request, *args, **kwargs):
         """
@@ -4561,8 +5091,27 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(e)
             return Response({"error":e.args}, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Delete User Resources",
+        description="Deletes various resources associated with a user (profile, bots, sessions, etc.).",
+        tags=["Accounts- System"]
+    )
     @action(methods=['POST'], detail=False, url_path='delete-user-resources')
     def delete_user_resource(self, request, *args, **kwargs):
+        """
+        Deletes various resources associated with a user.
+
+        This can include profiles, bots, sessions, session notes, connections,
+        and user action info. The deletion can be a soft or hard delete
+        based on the parameters.
+
+        Args:
+            request (Request): The request object containing 'user_id' or 'profile_id'
+                and flags for what to delete.
+
+        Returns:
+            Response: A confirmation message on successful deletion.
+        """
         try:
 
             user_id = request.data.get('user_id')
@@ -4623,6 +5172,11 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(f"Error in delete_user_resources: {e}")
             return Response({"error": f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    @extend_schema(
+        summary="Validate Snippet Access Code",
+        description="Validates an access code for a snippet.",
+        tags=['Accounts- ClientUser']
+    )
     @action(methods=['POST'], detail=False, url_path='validate-snippet-access-code')
     def validate_snippet_access_code(self, request, *args, **kwargs):
         try:
@@ -4648,6 +5202,11 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(f'Error in validate_snippet_access_code: {e}')
             return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        summary="Increase Test Attempts",
+        description="Increments the session attempt count for a given access code.",
+        tags=['Accounts- ClientUser']
+    )
     @action(methods=['POST'], detail=False, url_path='increase_test_attempts_in_accesscode')
     def increase_test_attempts_in_accesscode(self, request, *args, **kwargs):
         try:
@@ -4676,6 +5235,11 @@ class AccountsViewSet(ApiViewSet,
             logger.exception(f'Error in increase_test_attempts_in_accesscode: {e}')
             return Response({'error': f"An error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        summary="Get Mindmap and Assessments Report",
+        description="Retrieves mindmaps and assessment report links for a user.",
+        tags=['Accounts- User']
+    )
     @action(methods=['GET'], detail=False, url_path='get-mindmap-and-assessments-report')
     def get_mindmap_and_assessments_report(self, request, *args, **kwargs):
         try:
@@ -4743,6 +5307,15 @@ class AccountsViewSet(ApiViewSet,
             return Response({'error': f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+    @extend_schema(
+        summary="Get LLM Order",
+        description="Returns the preferred LLM order for a given bot_type and/or feature_type.",
+        parameters=[
+            OpenApiParameter("bot_type", str, description="Bot Type"),
+            OpenApiParameter("feature_type", str, description="Feature Type"),
+        ],
+        tags=['Accounts- User']
+    )
     @action(methods=["GET"], detail=False, url_path="get-llm-order")
     def get_llm_order_request(self, request, *args, **kwargs):
         """
@@ -4777,8 +5350,67 @@ class AccountsViewSet(ApiViewSet,
                 {"error": f"An error occurred: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        
+    @extend_schema(
+        summary="Get Actions Per Month",
+        description="Retrieves user actions (JobAid sessions, Modules completed) for the current month.",
+        tags=['Accounts- User']
+    )
     @action(methods=["GET"], detail=False, url_path="actions-per-month")
     def get_actions_per_month(self, request, *args, **kwargs):
+        """
+        Retrieves user activity metrics for the current month.
+
+        This endpoint calculates and returns the number of JobAid sessions created and
+        learning modules completed by a specific user within the current calendar month.
+        It is designed to support dashboard widgets or monthly activity reports.
+
+        **Authentication & Permissions:**
+        - **Authentication:** Required (Client/User).
+        - **Permissions:** `IsAuthenticatedClient`, `IsAuthenticatedUser`.
+
+        **HTTP Method:**
+        - `GET`
+
+        **URL Pattern:**
+        - `.../actions-per-month/` (Action on `AccountsViewSet`)
+
+        **Query Parameters:**
+        - `user_id` (string, required): The unique identifier (UID) of the user whose actions are being retrieved.
+
+        **Response Structure:**
+        - **Success (200 OK):**
+          Returns a JSON object containing:
+          - `user_id` (str): The user's UID.
+          - `month` (str): The current month and year (e.g., "January 2024").
+          - `jobaid_sessions_created` (int): Count of JobAid sessions created in the current month.
+          - `modules_completed` (int): Count of modules marked as completed in the current month.
+
+        - **Error Responses:**
+          - `400 Bad Request`: If `user_id` parameter is missing.
+          - `404 Not Found`: If the user does not exist or is flagged as deleted.
+          - `500 Internal Server Error`: If an unexpected server error occurs.
+
+        **Example Request:**
+        ```http
+        GET /api/v1/accounts/actions-per-month/?user_id=12345-abcde HTTP/1.1
+        Authorization: Bearer <token>
+        ```
+
+        **Example Response:**
+        ```json
+        {
+            "user_id": "12345-abcde",
+            "month": "October 2023",
+            "jobaid_sessions_created": 5,
+            "modules_completed": 2
+        }
+        ```
+
+        **Notes:**
+        - The month range is calculated based on the server's configured timezone.
+        - Only completed modules with a recorded `end_time` within the month range are counted.
+        """
         try:
             user_id = request.query_params.get('user_id')
             if not user_id:

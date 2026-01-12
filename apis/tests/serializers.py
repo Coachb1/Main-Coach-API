@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from drf_spectacular.utils import extend_schema_field
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
 from tests.models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
@@ -399,6 +400,7 @@ class TestDisplaySerializer(serializers.ModelSerializer):
                   'is_personality_game'
                     ]
 
+    @extend_schema_field(TestQuestionDisplaySerializer(many=True))
     def get_questions(self, instance):
         return TestQuestionDisplaySerializer(instance=TestQuestion.objects.filter(test_id=instance.uid), many=True).data
 
