@@ -1,7 +1,8 @@
 from django.urls import path, include
 from rest_framework import routers
 
-from apis.tests.views import CourseViewSet, TestCSVExportViewSet, TestViewSet
+from apis.tests.courese_view import CourseViewSet
+from apis.tests.views import TestCSVExportViewSet, TestViewSet
 
 router = routers.SimpleRouter()
 router.register("v1/tests", TestViewSet, "tests_v1")
