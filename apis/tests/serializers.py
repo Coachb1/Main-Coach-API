@@ -550,7 +550,7 @@ class UserReportSerializer(serializers.ModelSerializer):
 class CaseMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaseMappings
-        fields = ['tab_name', 'embed_link', 'transform_iq']
+        fields = ['tab_name', 'embed_link', 'transform_iq', "action_name"]
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -558,4 +558,4 @@ class CollectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ['id', 'collection_name', 'case_items', 'heading','action_tab_info','iframe_link']
+        fields = ['id', 'collection_name', 'case_items', 'heading','action_tab_info','iframe_link','iframe_title','iframe_subtitle']

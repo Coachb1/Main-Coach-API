@@ -693,6 +693,16 @@ class LibraryBotConfig(MyModel):
         blank=True,
         default=None
     )
+    login_dashboard=models.CharField(
+        max_length=55,
+        choices=[
+            ("client_only_setup", "Only Client Setup"),
+            ("user_specific_setup", "User Specific Setup"),
+        ],
+        null=True,
+        blank=True,
+        default="client_only_setup"
+    )
 
 
     class Meta:
@@ -721,6 +731,16 @@ class PortalPageConfig(MyModel):
         null=True,
         blank=True,
         default=None
+    )
+    login_dashboard=models.CharField(
+        max_length=55,
+        choices=[
+            ("client_only_setup", "Only Client Setup"),
+            ("user_specific_setup", "User Specific Setup"),
+        ],
+        null=True,
+        blank=True,
+        default="client_only_setup"
     )
 
     class Meta:
