@@ -168,7 +168,7 @@ def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
             industry = data.get('industry')
             hq = data.get('hq')
 
-            existing = get_existing_company_iq(company_name, industry, hq)
+            existing = get_existing_company_iq(company_name)
 
             use_llm = data.get("use_llm", False)
 
