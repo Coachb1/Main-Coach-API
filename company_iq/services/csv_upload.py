@@ -1,7 +1,9 @@
 import csv
 from io import TextIOWrapper
 import json
+import re
 from string import Template
+import chardet
 from django.core.exceptions import ValidationError
 from commons.utils import generic_completion
 from company_iq.models import CompanyIQ
@@ -105,13 +107,45 @@ def normalize_csv_row(row):
     return normalized
 
 
-
 def parse_list(value):
     if not value:
         return []
+
+    # Case 1: list with a single giant string
+    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], str):
+        value = value[0]
+
+    items = []
+
+    # Case 2: string input
     if isinstance(value, str):
-        return [v.strip() for v in value.split("|") if v.strip()]
-    return value
+        lines = re.split(r"[\n\r]+", value)
+        items.extend(lines)
+
+    # Case 3: list input
+    elif isinstance(value, list):
+        for item in value:
+            if isinstance(item, str):
+                items.extend(re.split(r"[\n\r]+", item))
+
+    else:
+        raise ValidationError(
+            "Expected a list of strings or a newline-separated string."
+        )
+
+    cleaned = []
+    for line in items:
+        line = line.strip()
+
+        # remove bullets: *, -, •, 1., 1)
+        line = re.sub(r"^(\s*[\*\-\•]|\s*\d+[\.\)])\s*", "", line)
+
+        if line:
+            cleaned.append(line)
+
+    # deduplicate while preserving order
+    return list(dict.fromkeys(cleaned))
+
 
 
 def validate_row(row, required_fields):
@@ -145,7 +179,15 @@ def upsert_companyiq(existing_obj, data, source, approved=False):
     return "created"
 
 def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
-    reader = csv.DictReader(TextIOWrapper(file, encoding="utf-8"))
+    raw = file.read()
+    detected = chardet.detect(raw)
+    encoding = detected.get("encoding") or "utf-8"
+
+    file.seek(0)
+
+    reader = csv.DictReader(
+        TextIOWrapper(file, encoding=encoding, errors="replace")
+    )
     rows = list(reader)
     # if len(rows) > MAX_CSV_ROWS:
     #     raise ValidationError(
