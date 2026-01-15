@@ -1,44 +1,7 @@
 from rest_framework import serializers
 
 from company_iq.models import CompanyIQ
-import re
-
-def normalize_list_input(value):
-    """
-    Accepts:
-    - string with bullets/newlines
-    - list of strings
-    Returns:
-    - clean list of strings
-    """
-    if value is None:
-        return []
-
-    # Case 1: string input
-    if isinstance(value, str):
-        # split by newlines
-        lines = re.split(r"[\n\r]+", value)
-        cleaned = []
-        for line in lines:
-            item = line.strip()
-            # remove bullets like *, -, •
-            item = re.sub(r"^[\*\-\•]+\s*", "", item)
-            if item:
-                cleaned.append(item)
-        return cleaned
-
-    # Case 2: list input
-    if isinstance(value, list):
-        cleaned = []
-        for item in value:
-            if isinstance(item, str):
-                item = item.strip()
-                item = re.sub(r"^[\*\-\•]+\s*", "", item)
-                if item:
-                    cleaned.append(item)
-        return cleaned
-
-    return value
+from company_iq.services.csv_upload import parse_list
 
 
 class CompanyIQSerializer(serializers.ModelSerializer):
@@ -67,10 +30,10 @@ class CompanyIQSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         # Normalize list fields in the output
-        data["ai_cloud_leadership_roles"] = normalize_list_input(data.get("ai_cloud_leadership_roles"))
-        data["ai_digital_initiatives"] = normalize_list_input(data.get("ai_digital_initiatives"))
-        data["cloud_tech_stack_signals"] = normalize_list_input(data.get("cloud_tech_stack_signals"))
-        data["ai_use_cases"] = normalize_list_input(data.get("ai_use_cases"))
+        data["ai_cloud_leadership_roles"] = parse_list(data.get("ai_cloud_leadership_roles"))
+        data["ai_digital_initiatives"] = parse_list(data.get("ai_digital_initiatives"))
+        data["cloud_tech_stack_signals"] = parse_list(data.get("cloud_tech_stack_signals"))
+        data["ai_use_cases"] = parse_list(data.get("ai_use_cases"))
         return data
 
 
@@ -94,3 +57,13 @@ class ApprovedCompanyIQSerializer(serializers.ModelSerializer):
             "created",
         ]
         read_only_fields = fields
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Normalize list fields in the output
+        data["ai_cloud_leadership_roles"] = parse_list(data.get("ai_cloud_leadership_roles"))
+        data["ai_digital_initiatives"] = parse_list(data.get("ai_digital_initiatives"))
+        data["cloud_tech_stack_signals"] = parse_list(data.get("cloud_tech_stack_signals"))
+        data["ai_use_cases"] = parse_list(data.get("ai_use_cases"))
+        return data
