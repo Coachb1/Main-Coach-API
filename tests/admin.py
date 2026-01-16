@@ -1214,7 +1214,7 @@ class CourseAdmin(admin.ModelAdmin):
                 row = {k.strip().replace(" ", "_").lower(): v.strip() if len(v.strip()) > 0 else None for k, v in row.items()}  # clean whitespace
                 print('row', row)
                 module_title = row.get("name").strip()
-                chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "TEXT"
+                chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "BOOK"
 
                 if not module_title:
                     continue

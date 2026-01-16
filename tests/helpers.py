@@ -14881,6 +14881,7 @@ def export_modules_to_csv(queryset):
 
     BASE_HEADER = [
         "Course Name",
+        "Chapter Type",
         "Name",
         "Keywords",
         "Latest/Recent",
@@ -14953,6 +14954,7 @@ def export_modules_to_csv(queryset):
     for course, module in modules_cache:
         base_row = [
             course.title,
+            module.chapter_type or "",
             module.title or "",
             module.key_words or "",
             "TRUE" if module.emerging_player else "FALSE",
