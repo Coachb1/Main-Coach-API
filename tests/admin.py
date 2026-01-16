@@ -19,7 +19,7 @@ from users.helpers import get_client_info_from_user_detail
 from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
-from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, format_game_json_to_string, process_test_pilot_user_csv
+from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, extract_transform_iq, format_game_json_to_string, process_test_pilot_user_csv
 from .models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
@@ -1293,18 +1293,14 @@ class CourseAdmin(admin.ModelAdmin):
                 test = None
                 if row.get('test_code'):
                     test = Test.objects.filter(deleted=False, test_code=row.get('test_code')).first()
-                iq = None
-                if row.get('transform_iq_overview'):
-                    iq_overview = row.get('transform_iq_overview')
-                    iq = {
-                        "overview": iq_overview,
-                        "roles": {}
-                    }
-                    for key, value in row.items():
-                        if key.startswith('iq-'):
-                            role = key.split('-')[1].strip().replace("_", ' ').title()
-                            iq['roles'][f"{role}"] = value
-                    
+
+
+                # now we are checking two case where client name 1 and others like transform iq overview are numbered as 
+                # second without clientname and without numbered
+                # Client Name 1	Transform IQ Overview 1	IQ-Tech Lead 1	IQ-Operations Lead 1	IQ-Finance Lead 1	IQ-People Lead 1	IQ-Core Business Lead 1
+                print(row.keys())
+                # detect all client indexes dynamically
+                iq = extract_transform_iq(row)
                 module, created = Module.objects.update_or_create(
                     title=module_title,
                     course=obj,  # attach to this course
@@ -1327,7 +1323,7 @@ class CourseAdmin(admin.ModelAdmin):
                         "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
                         "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
                         "key_words": row.get("keywords", "").strip() if row.get("keywords") else None,
-                        "transform_iq": iq
+                        "transform_iq": iq or None
                     }
                 )
 
