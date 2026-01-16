@@ -14850,7 +14850,7 @@ def extract_transform_iq(row):
 
         temp_iq = {
             "overview": iq_overview,
-            "roles": extract_roles(row, f"iq-{idx}-"),
+            "roles": extract_roles(row, f"iq{idx}-"),
         }
 
         iq[client_name] = temp_iq
