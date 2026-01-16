@@ -19,7 +19,7 @@ from users.helpers import get_client_info_from_user_detail
 from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
-from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, extract_transform_iq, format_game_json_to_string, process_test_pilot_user_csv
+from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, export_modules_to_csv, extract_transform_iq, format_game_json_to_string, process_test_pilot_user_csv
 from .models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
@@ -1193,80 +1193,8 @@ class CourseAdmin(admin.ModelAdmin):
         """
         Export all modules belonging to the selected courses as CSV.
         """
-        # Prepare CSV response
-        response = HttpResponse(content_type="text/csv")
-        filename = f"modules_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-        writer = csv.writer(response)
-        header = [
-            "Course Name",
-            "Name",
-            "Keywords",
-            "Latest/Recent",
-            "Startup",
-            "Author",
-            "Description",
-            "Implementation Complexity",
-            "Industry",
-            "Business Outcome",
-            "Unexpected Outcome",
-            "Function",
-            "Report Link",
-            "Image Link",
-            "Video Link",
-            "Audio Link",
-            "Category",
-            "Test Code",
-        ]
-
-        # Fetch and write rows
-        total_written = 0
-        rows = []
-        for course in queryset:
-            modules = Module.objects.filter(course=course).select_related("test")
-            for module in modules:
-                roles = []
-                overview = None
-                if module.transform_iq:
-                    header.append("Transform IQ Overview")
-                    overview = module.transform_iq.get('overview')
-                    for key, value in module.transform_iq.get('roles',{}).items():
-                        header.append(f"IQ-{key.replace('_', ' ').title()}")
-                        roles.append(value)
-                    
-                row_item = [
-                    course.title,
-                    module.title or "",
-                    module.key_words or "",
-                    "TRUE" if module.emerging_player else "FALSE",
-                    "TRUE" if module.startup else "FALSE",
-                    module.author or "",
-                    module.description or "",
-                    module.implementation_complexity or "",
-                    module.tag or "",
-                    module.business_outcome or "",
-                    module.unexpected_outcome or "",
-                    module.function or "",
-                    module.embed_link or "",
-                    module.image_link or "",
-                    module.video_url or "",
-                    module.audio_link or "",
-                    module.list_name or "",
-                    module.test.test_code if module.test else "",
-                ]
-
-                if "Transform IQ Overview" in header or overview:
-                    row_item.append(overview)
-                    row_item += roles
-
-                rows.append(row_item)
-                total_written += 1
-
-        writer.writerow(header)
-        writer.writerows(rows)
-        return response
-
+        return export_modules_to_csv(queryset)
+    
     def save_model(self, request, obj, form, change):
         """
         Overrides save to process CSV after saving course.
