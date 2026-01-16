@@ -14818,3 +14818,49 @@ def merge_user_progress(package_data, progress_data):
             module["progress"] = module_progress_map.get(mid, None)
 
     return package_data
+
+
+def normalize_role(role: str) -> str:
+    return role.replace("_", " ").title()
+
+
+def extract_roles(row, prefix):
+    roles = {}
+    for key, value in row.items():
+        if key.startswith(prefix):
+            parts = key.split("-")
+            role = normalize_role(parts[-1])
+            roles[role] = value
+    return roles
+
+def extract_transform_iq(row):
+    iq = {}
+    client_indexes = [
+        key.split("_")[-1]
+        for key in row.keys()
+        if key.startswith("client_name_")
+    ]
+
+    for idx in client_indexes:
+        client_name = (row.get(f"client_name_{idx}") or "").strip()
+        if not client_name:
+            continue
+
+        iq_overview = row.get(f"transform_iq_overview_{idx}")
+
+        temp_iq = {
+            "overview": iq_overview,
+            "roles": extract_roles(row, f"iq-{idx}-"),
+        }
+
+        iq[client_name] = temp_iq
+    
+    general_overview = row.get("transform_iq_overview")
+
+    if general_overview:
+        iq["General"] = {
+            "overview": general_overview,
+            "roles": extract_roles(row, "iq-"),
+        }
+
+    return iq or None
