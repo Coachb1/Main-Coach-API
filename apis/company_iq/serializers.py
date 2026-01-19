@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from company_iq.models import CompanyIQ
+from company_iq.services.csv_upload import parse_list
 
 
 class CompanyIQSerializer(serializers.ModelSerializer):
@@ -26,6 +27,15 @@ class CompanyIQSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uid", "company_normalized", "created", "updated"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Normalize list fields in the output
+        data["ai_cloud_leadership_roles"] = parse_list(data.get("ai_cloud_leadership_roles"))
+        data["ai_digital_initiatives"] = parse_list(data.get("ai_digital_initiatives"))
+        data["cloud_tech_stack_signals"] = parse_list(data.get("cloud_tech_stack_signals"))
+        data["ai_use_cases"] = parse_list(data.get("ai_use_cases"))
+        return data
+
 
 class ApprovedCompanyIQSerializer(serializers.ModelSerializer):
     """Serializer for listing approved CompanyIQ records"""
@@ -47,3 +57,13 @@ class ApprovedCompanyIQSerializer(serializers.ModelSerializer):
             "created",
         ]
         read_only_fields = fields
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Normalize list fields in the output
+        data["ai_cloud_leadership_roles"] = parse_list(data.get("ai_cloud_leadership_roles"))
+        data["ai_digital_initiatives"] = parse_list(data.get("ai_digital_initiatives"))
+        data["cloud_tech_stack_signals"] = parse_list(data.get("cloud_tech_stack_signals"))
+        data["ai_use_cases"] = parse_list(data.get("ai_use_cases"))
+        return data

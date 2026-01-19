@@ -93,6 +93,7 @@ class JobAidViewSet(ApiViewSet,
         try:
             qna = request.data.get('qna')
             user_email = request.data.get('useremail')
+            client_id = request.data.get('client_id')  # Optional
             user_name = request.data.get('name')  # Optional
             jobaid_id = request.data.get('jobaid')
 
@@ -144,6 +145,7 @@ class JobAidViewSet(ApiViewSet,
             session = JobAidSession.objects.create(
                 job_aid=jobaid,
                 email=user_email,
+                client_id=client_id,
                 qna=qna,
                 full_name=user_name,
                 status="completed",
@@ -209,17 +211,21 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f"Error in get_session_report: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    # not using
     @action(methods=['GET'], detail=False, url_path='job-aid-sessions')
     def get_job_aid_sessions(self, request):
 
         try:
             jobaid_id = request.query_params.get('jobaid_id')
             email = request.query_params.get('email')
+            client_id = request.query_params.get('client_id')
             if not jobaid_id:
                 return Response({'error': 'JobAid ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
             jobaid_sessions = JobAidSession.objects.filter(deleted=False, job_aid=jobaid)
+            if client_id:
+                jobaid_sessions = jobaid_sessions.filter(client_id=client_id)
             if email:
                 jobaid_sessions = jobaid_sessions.filter(email=email)
             session_data = JobAidSessionSerializer(jobaid_sessions, many=True)
@@ -279,12 +285,14 @@ class JobAidViewSet(ApiViewSet,
     def job_aid_leaderboard(self, request):
         try:
             jobaid_id = request.query_params.get('jobaid_id')
+            client_id = request.query_params.get('client_id')
             if not jobaid_id:
                 return Response({'error': 'JobAid ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
             jobaid_sessions = JobAidSession.objects.filter(deleted=False, job_aid=jobaid).order_by('-like_count')
-
+            if client_id:
+                jobaid_sessions = jobaid_sessions.filter(client_id=client_id)
             serializer = JobAidSessionSerializer(jobaid_sessions, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
