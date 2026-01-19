@@ -12325,7 +12325,7 @@ def parse_personality_dimensions(text_response, expected_sections, psy_dict):
     return results
 
 import json
-from .models import Psychometric, PsychometricItem, TestMapping
+from .models import Module, Psychometric, PsychometricItem, TestMapping
 
 def extract_section_details(json_data):
     extracted_data = []
@@ -14818,3 +14818,194 @@ def merge_user_progress(package_data, progress_data):
             module["progress"] = module_progress_map.get(mid, None)
 
     return package_data
+
+
+def normalize_role(role: str) -> str:
+    return role.replace("_", " ").title()
+
+
+def extract_roles(row, prefix):
+    roles = {}
+    for key, value in row.items():
+        if key.startswith(prefix):
+            parts = key.split("-")
+            role = normalize_role(parts[-1])
+            roles[role] = value
+    return roles
+
+def extract_transform_iq(row):
+    iq = {}
+    client_indexes = [
+        key.split("_")[-1]
+        for key in row.keys()
+        if key.startswith("client_name_")
+    ]
+
+    for idx in client_indexes:
+        client_name = (row.get(f"client_name_{idx}") or "").strip()
+        if not client_name:
+            continue
+
+        iq_overview = row.get(f"transform_iq_overview_{idx}")
+
+        temp_iq = {
+            "overview": iq_overview,
+            "roles": extract_roles(row, f"iq{idx}-"),
+        }
+
+        iq[client_name] = temp_iq
+    
+    general_overview = row.get("transform_iq_overview")
+
+    if general_overview:
+        iq["General"] = {
+            "overview": general_overview,
+            "roles": extract_roles(row, "iq-"),
+        }
+
+    return iq or None
+
+def export_modules_to_csv(queryset):
+    """
+    Export modules with dynamic Transform IQ CSV schema.
+    """
+    import csv
+    from django.http import HttpResponse
+    from django.utils import timezone
+
+    response = HttpResponse(content_type="text/csv")
+    filename = f"modules_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+
+    BASE_HEADER = [
+        "Course Name",
+        "Chapter Type",
+        "Name",
+        "Keywords",
+        "Latest/Recent",
+        "Startup",
+        "Author",
+        "Description",
+        "Implementation Complexity",
+        "Industry",
+        "Business Outcome",
+        "Unexpected Outcome",
+        "Function",
+        "Report Link",
+        "Image Link",
+        "Video Link",
+        "Audio Link",
+        "Category",
+        "Test Code",
+    ]
+
+    # ---------------------------------------------------
+    # PASS 1: Discover Transform IQ schema
+    # ---------------------------------------------------
+    general_roles = set()
+    client_role_map = {}   # {1: set(), 2: set(), ...}
+    max_client_index = 0
+
+    modules_cache = []
+
+    for course in queryset:
+        modules = Module.objects.filter(course=course).select_related("test")
+        for module in modules:
+            modules_cache.append((course, module))
+            transform_iq = module.transform_iq or {}
+
+            # ---- General ----
+            if "General" in transform_iq:
+                roles = transform_iq["General"].get("roles", {})
+                general_roles.update(roles.keys())
+
+            # ---- Clients ----
+            client_names = [k for k in transform_iq.keys() if k != "General"]
+            for idx, client_name in enumerate(client_names, start=1):
+                max_client_index = max(max_client_index, idx)
+                client_roles = transform_iq[client_name].get("roles", {})
+                client_role_map.setdefault(idx, set()).update(client_roles.keys())
+
+    # ---------------------------------------------------
+    # Build dynamic header
+    # ---------------------------------------------------
+    header = BASE_HEADER.copy()
+
+    # ---- General block ----
+    if general_roles:
+        header.append("Transform IQ Overview")
+        for role in sorted(general_roles):
+            header.append(f"IQ-{role}")
+
+    # ---- Client blocks ----
+    for idx in range(1, max_client_index + 1):
+        header.append(f"Client Name {idx}")
+        header.append(f"Transform IQ Overview {idx}")
+        for role in sorted(client_role_map.get(idx, [])):
+            header.append(f"IQ{idx}-{role}")
+
+    writer.writerow(header)
+
+    # ---------------------------------------------------
+    # PASS 2: Write rows
+    # ---------------------------------------------------
+    for course, module in modules_cache:
+        base_row = [
+            course.title,
+            module.chapter_type or "",
+            module.title or "",
+            module.key_words or "",
+            "TRUE" if module.emerging_player else "FALSE",
+            "TRUE" if module.startup else "FALSE",
+            module.author or "",
+            module.description or "",
+            module.implementation_complexity or "",
+            module.tag or "",
+            module.business_outcome or "",
+            module.unexpected_outcome or "",
+            module.function or "",
+            module.embed_link or "",
+            module.image_link or "",
+            module.video_url or "",
+            module.audio_link or "",
+            module.list_name or "",
+            module.test.test_code if module.test else "",
+        ]
+
+        row = base_row.copy()
+        transform_iq = module.transform_iq or {}
+
+        # ---- General ----
+        if general_roles:
+            general = transform_iq.get("General", {})
+            row.append(general.get("overview", ""))
+            roles = general.get("roles", {})
+            for role in sorted(general_roles):
+                row.append(roles.get(role, ""))
+
+        # ---- Clients ----
+        client_names = [k for k in transform_iq.keys() if k != "General"]
+
+        for idx in range(1, max_client_index + 1):
+            if idx <= len(client_names):
+                name = client_names[idx - 1]
+                block = transform_iq.get(name, {})
+                roles = block.get("roles", {})
+
+                row.append(name)
+                row.append(block.get("overview", ""))
+
+                for role in sorted(client_role_map.get(idx, [])):
+                    row.append(roles.get(role, ""))
+            else:
+                # Empty client block
+                row.append("")
+                row.append("")
+                for _ in sorted(client_role_map.get(idx, [])):
+                    row.append("")
+
+        writer.writerow(row)
+
+    return response
