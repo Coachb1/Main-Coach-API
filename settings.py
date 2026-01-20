@@ -54,7 +54,8 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'celeryapp',
     'jobaid.apps.JobaidConfig',
-    'company_iq.apps.CompanyIqConfig'
+    'company_iq.apps.CompanyIqConfig',
+    'analytics.apps.AnalyticsConfig',
 ]
 
 MIDDLEWARE = [
