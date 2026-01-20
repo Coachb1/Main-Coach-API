@@ -1,0 +1,137 @@
+{% extends "analytics/admin_base.html" %}
+{% load static %}
+
+{% block analytics_content %}
+<div class="max-w-6xl mx-auto p-6 space-y-8">
+
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold">{{ feature }}</h1>
+      <p class="text-slate-500">
+        {% if selected_client %}
+  {{ selected_client.client_name }} · Last {{ selected_days }} days
+{% else %}
+  All clients · Last {{ selected_days }} days
+{% endif %}
+
+      </p>
+    </div>
+    <!-- Filters (future ready) -->
+  <div class="flex items-center gap-2">
+    <a
+  href="{% url 'admin:analytics-export-csv' %}?feature={{ feature }}&days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}"
+  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
+         rounded-lg bg-slate-800 text-slate-500
+         hover:bg-slate-700
+         focus:outline-none focus:ring-2 focus:ring-slate-400
+         transition">
+  Export CSV
+</a>
+
+    <form method="get" class="flex flex-wrap items-center gap-4">
+
+<!-- Date range -->
+<div class="flex items-center gap-2">
+  <label class="text-sm text-slate-500">Range</label>
+  <select
+    name="days"
+    onchange="this.form.submit()"
+    class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm"
+  >
+    <option value="7"  {% if selected_days == 7 %}selected{% endif %}>7 days</option>
+    <option value="14" {% if selected_days == 14 %}selected{% endif %}>14 days</option>
+    <option value="30" {% if selected_days == 30 %}selected{% endif %}>30 days</option>
+    <option value="90" {% if selected_days == 90 %}selected{% endif %}>90 days</option>
+  </select>
+</div>
+
+<!-- Client selector -->
+<div class="flex items-center gap-2">
+  <label class="text-sm text-slate-500">Client</label>
+  <select
+    name="client_id"
+    onchange="this.form.submit()"
+    class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm min-w-[200px]"
+  >
+    <option value="">All clients</option>
+
+    {% for c in clients %}
+      <option
+        value="{{ c.uid }}"
+        {% if selected_client and selected_client.uid == c.uid %}selected{% endif %}
+      >
+        {{ c.client_name }}
+      </option>
+    {% endfor %}
+  </select>
+</div>
+
+    </form>
+  </div>
+  </div>
+  
+
+  <!-- KPI -->
+  <div class="bg-white rounded-xl p-6 shadow-sm border">
+    <p class="text-sm text-slate-500">Total Events</p>
+    <p class="text-3xl font-bold mt-2">{{ total_events }}</p>
+  </div>
+
+  <!-- Daily trend -->
+  <div class="bg-white rounded-xl p-6 shadow-sm border">
+    <h2 class="font-semibold mb-4">Daily Usage</h2>
+    <canvas id="dailyChart"></canvas>
+  </div>
+
+  <!-- Users -->
+  <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+    <div class="px-6 py-4 border-b">
+      <h2 class="font-semibold">Users</h2>
+    </div>
+
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="p-4 text-left">User</th>
+          <th class="p-4 text-right">Events</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr class="border-t">
+          <td class="p-4">{{ u.email }}</td>
+          <td class="p-4 text-right">{{ u.total }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="2" class="p-6 text-center text-slate-400">
+            No user data
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+{{ daily_usage|json_script:"daily-data" }}
+
+<script>
+const dailyData = JSON.parse(
+  document.getElementById("daily-data").textContent
+);
+
+new Chart(document.getElementById("dailyChart"), {
+  type: "line",
+  data: {
+    labels: dailyData.map(d => d.day),
+    datasets: [{
+      label: "Events",
+      data: dailyData.map(d => d.total),
+      tension: 0.4
+    }]
+  }
+});
+</script>
+{% endblock %}
