@@ -1,8 +1,8 @@
 from django.urls import include, path
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from apis.analytics.views import EventViewSet
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register("v1/analytics", EventViewSet, basename="analytics")
 
 urlpatterns = [
