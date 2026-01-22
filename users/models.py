@@ -388,6 +388,8 @@ class ClientUserInfo(TenantAwareModel):
             blank=True,
             related_name="client_users"
         )
+    client_logo = models.CharField(max_length=255,null=True, blank=True, default=None)
+
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)
@@ -447,6 +449,41 @@ class LibraryBotConfig(MyModel):
         default="client_only_setup"
     )
 
+    card_button_label = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text='for eg: {"description": "TransformIQ", "report": "Report"}'
+    )
+    feature_boxs = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text='for eg: ["xyz feature", "abc feature"]'
+    )
+    announcements_section = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text= """
+        {
+        enabled: boolean;
+        heading: {
+            text: string;
+            link: string | null;
+            link_text: string | null;
+            append_text?: string;
+        },
+        subheading: {
+            text: string;
+            link: string | null;
+            link_text: string | null;
+            append_text?: string;
+
+        }
+        }
+        """
+            )
 
     class Meta:
         db_table = "library_bot_config"
