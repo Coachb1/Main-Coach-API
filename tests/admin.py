@@ -1,6 +1,7 @@
 from django.utils import timezone
 from django.contrib import admin
 from import_export.admin import ExportActionMixin
+from commons.utils import sanitize_text
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
 from tests.models import (
@@ -1211,7 +1212,7 @@ class CourseAdmin(admin.ModelAdmin):
 
             created_count, updated_count = 0, 0
             for row in reader:
-                row = {k.strip().replace(" ", "_").lower(): v.strip() if len(v.strip()) > 0 else None for k, v in row.items()}  # clean whitespace
+                row = {k.strip().replace(" ", "_").lower(): sanitize_text(v.strip()) if len(v.strip()) > 0 else None for k, v in row.items()}  # clean whitespace
                 print('row', row)
                 module_title = row.get("name").strip()
                 chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "BOOK"

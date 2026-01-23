@@ -82,7 +82,7 @@ class LibraryBotConfigInline(admin.StackedInline):
     show_change_link = True
     fieldsets = (
         ("Configuration", {
-            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls", "announcements_section", "feature_boxs", "card_button_label")
+            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls", "announcements_section", "feature_boxs", "card_button_config")
         }),
         ("Leaderboard Settings", {
             "fields": ("leaderboard_report_protected", "leaderboard_report_password")

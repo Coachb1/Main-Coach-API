@@ -8,6 +8,9 @@ from commons.google_apis import text_bison_compeletion, gemini_completion
 import re
 from utilities.models import BotEngagement
 import string
+import re
+import unicodedata
+from ftfy import fix_text
 
 
 logger = logging.getLogger(__name__)
@@ -190,3 +193,27 @@ def get_list_from_string(string:str,
     This function splits a string into a list based on a given delimiter.
     """
     return list(set([i for i in [value.strip() for value in string.strip().split(delimiter) if len(value.strip()) > 0]] if string else []))
+
+
+JUNK_CHARS_REGEX = re.compile(
+    r"[\u200B-\u200D\uFEFF\u202A-\u202E]"
+)
+
+def sanitize_text(value: str) -> str:
+    if not value:
+        return value
+
+    value = fix_text(value)
+    # Normalize Unicode (very important)
+    value = unicodedata.normalize("NFKC", value)
+
+    # Remove invisible / direction characters
+    value = JUNK_CHARS_REGEX.sub("", value)
+
+    # Replace non-breaking spaces
+    value = value.replace("\u00A0", " ")
+
+    # Normalize whitespace
+    value = re.sub(r"\s+", " ", value)
+
+    return value.strip()
