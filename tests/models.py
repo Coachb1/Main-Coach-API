@@ -734,11 +734,11 @@ class Module(MyModel):
     total_likes = models.IntegerField(
             default=0, help_text="Total likes received for the module"
         )
-    card_button_label = models.JSONField(
+    card_button_config = models.JSONField(
         default=None,
         blank=True,
         null=True,
-        help_text='for eg: {"description": "TransformIQ", "report": "Report"}'
+        help_text='for eg: {"description": {"show": true, "label": "TransformIQ"}, "report": {"show": true, "label": "TransformIQ"}, "audio_button": {"show": true, "label": ""}}'
     )
     def __str__(self):
         return f"{self.title} ({self.course.title})"
