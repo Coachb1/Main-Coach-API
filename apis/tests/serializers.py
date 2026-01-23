@@ -4,6 +4,7 @@ from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
 from tests.models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
 from users.models import User
+from commons.utils import sanitize_text
 
 
 class CreateTestQuestionSerializer(serializers.Serializer):
@@ -461,6 +462,10 @@ class ModuleSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         if instance.test:
             data["test"] = TestDisplaySerializer(instance.test).data
+
+        data['description'] = sanitize_text(instance.description) if instance.description else ""
+        data['title'] = sanitize_text(instance.title) if instance.title else ""
+        data['module_name'] = sanitize_text(instance.module_name) if instance.module_name else ""
 
             
         data["key_words"] = instance.key_words.split(",") if instance.key_words else []

@@ -1,0 +1,15 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+  <!-- Custom Analytics Button -->
+  <div class="dashboard-module" style="margin-bottom: 20px;">
+    <h2>📊 Analytics</h2>
+    <div class="module">
+      <a href="{% url 'admin:analytics-dashboard' %}" class="button default">
+        Open Analytics Dashboard
+      </a>
+    </div>
+  </div>
+
+  {{ block.super }}
+{% endblock %}

@@ -1,0 +1,220 @@
+{% extends "analytics/admin_base.html" %}
+
+{% block analytics_content %}
+
+<div class="max-w-7xl mx-auto px-6 py-8 space-y-10">
+
+  <!-- Header + Filters -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Product Analytics</h1>
+      <p class="text-slate-500 mt-1">
+  {% if selected_client %}
+    {{ selected_client.client_name }} · Last {{ selected_days }} days
+  {% else %}
+    All clients · Last {{ selected_days }} days
+  {% endif %}
+</p>
+
+    </div>
+
+    <!-- Filters (future ready) -->
+    <div class="flex items-center gap-2">
+        <a
+  href="{% url 'admin:analytics-export-csv' %}?days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}"
+  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
+         rounded-lg bg-slate-800 text-slate-500
+         hover:bg-slate-700
+         focus:outline-none focus:ring-2 focus:ring-slate-400
+         transition"
+>
+  Export CSV
+</a>
+
+
+      <form method="get" class="flex flex-wrap items-center gap-4">
+
+  <!-- Date range -->
+  <div class="flex items-center gap-2">
+    <label class="text-sm text-slate-500">Range</label>
+    <select
+      name="days"
+      onchange="this.form.submit()"
+      class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm"
+    >
+      <option value="7"  {% if selected_days == 7 %}selected{% endif %}>7 days</option>
+      <option value="14" {% if selected_days == 14 %}selected{% endif %}>14 days</option>
+      <option value="30" {% if selected_days == 30 %}selected{% endif %}>30 days</option>
+      <option value="90" {% if selected_days == 90 %}selected{% endif %}>90 days</option>
+    </select>
+  </div>
+
+  <!-- Client selector -->
+  <div class="flex items-center gap-2">
+    <label class="text-sm text-slate-500">Client</label>
+    <select
+      name="client_id"
+      onchange="this.form.submit()"
+      class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm min-w-[200px]"
+    >
+      <option value="">All clients</option>
+
+      {% for c in clients %}
+        <option
+          value="{{ c.uid }}"
+          {% if selected_client and selected_client.uid == c.uid %}selected{% endif %}
+        >
+          {{ c.client_name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+</form>
+
+
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border">
+      <p class="text-sm text-slate-500">Total Events</p>
+      <p class="text-3xl font-bold mt-3">
+        {{ data.kpis.total_events }}
+      </p>
+      <p class="text-xs text-slate-400 mt-2">All tracked interactions</p>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border">
+      <p class="text-sm text-slate-500">Active Users</p>
+      <p class="text-3xl font-bold mt-3">
+        {{ data.kpis.active_users }}
+      </p>
+      <p class="text-xs text-slate-400 mt-2">Users with at least one event</p>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border">
+      <p class="text-sm text-slate-500">Top Feature</p>
+      <p class="text-xl font-semibold mt-4">
+        {{ data.kpis.top_feature|default:"—" }}
+      </p>
+      <p class="text-xs text-slate-400 mt-2">Most used action</p>
+    </div>
+
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+    <!-- Feature Usage -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-lg">Top Features</h2>
+        <span class="text-xs text-slate-400">Clicks</span>
+      </div>
+      <canvas id="featureChart" height="140"></canvas>
+    </div>
+
+    <!-- Usage Trend -->
+    <div class="bg-white rounded-2xl p-6 shadow-sm border">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-lg">Usage Trend</h2>
+        <span class="text-xs text-slate-400">Daily events</span>
+      </div>
+      <canvas id="dailyChart" height="140"></canvas>
+    </div>
+
+  </div>
+
+  <!-- Feature Table -->
+  <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+    <div class="px-6 py-4 border-b">
+      <h2 class="font-semibold text-lg">Feature Breakdown</h2>
+      <p class="text-sm text-slate-500 mt-1">Detailed usage counts</p>
+    </div>
+
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="p-4 text-left font-medium">Feature</th>
+          <th class="p-4 text-right font-medium">Clicks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in data.charts.feature_usage %}
+        <tr class="border-t hover:bg-slate-50 transition">
+          <td class="p-4 font-medium">
+  <a
+    href="{% url 'admin:analytics-feature-detail' f.feature %}?days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}"
+    class="text-blue-600 hover:underline"
+  >
+    {{ f.feature }}
+  </a>
+</td>
+
+          <td class="p-4 text-right">{{ f.total }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="2" class="p-6 text-center text-slate-400">
+            No data available
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- JSON Injection -->
+{{ data.charts.feature_usage|json_script:"feature-data" }}
+{{ data.charts.daily_usage|json_script:"daily-data" }}
+
+<script>
+const featureData = JSON.parse(
+  document.getElementById("feature-data").textContent
+);
+const dailyData = JSON.parse(
+  document.getElementById("daily-data").textContent
+);
+
+new Chart(document.getElementById("featureChart"), {
+  type: "bar",
+  data: {
+    labels: featureData.map(f => f.feature),
+    datasets: [{
+      label: "Clicks",
+      data: featureData.map(f => f.total),
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { display: false }
+    }
+  }
+});
+
+new Chart(document.getElementById("dailyChart"), {
+  type: "line",
+  data: {
+    labels: dailyData.map(d => d.day),
+    datasets: [{
+      label: "Events",
+      data: dailyData.map(d => d.total),
+      tension: 0.4,
+      fill: false
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { display: false }
+    }
+  }
+});
+</script>
+
+{% endblock %}
