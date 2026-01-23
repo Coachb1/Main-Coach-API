@@ -5,7 +5,7 @@ import re
 from string import Template
 import chardet
 from django.core.exceptions import ValidationError
-from commons.utils import generic_completion
+from commons.utils import generic_completion, sanitize_text
 from company_iq.models import CompanyIQ
 
 import logging
@@ -92,7 +92,7 @@ def normalize_csv_row(row):
         if raw is None:
             continue
 
-        value = raw.strip()
+        value = sanitize_text(raw.strip())
 
         if model_key in ("use_llm", "approved"):
             normalized[model_key] = value.lower() == "true" if value else False
