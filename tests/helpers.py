@@ -66,7 +66,7 @@ from skills.constants import skills as all_presented_skills
 import re
 from commons.google_apis import speech_to_text, text_bison_compeletion, gemini_competions, gemini_completion
 from pdf_generator.helpers import update_skill_name
-from commons.utils import generic_completion
+from commons.utils import generic_completion, sanitize_text
 import threading
 from tests.choices import ScenarioCaseChoices
 from bs4 import BeautifulSoup
@@ -14953,14 +14953,14 @@ def export_modules_to_csv(queryset):
     # ---------------------------------------------------
     for course, module in modules_cache:
         base_row = [
-            course.title,
+            sanitize_text(course.title),
             module.chapter_type or "",
             module.title or "",
             module.key_words or "",
             "TRUE" if module.emerging_player else "FALSE",
             "TRUE" if module.startup else "FALSE",
             module.author or "",
-            module.description or "",
+            sanitize_text(module.description or ""),
             module.implementation_complexity or "",
             module.tag or "",
             module.business_outcome or "",

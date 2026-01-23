@@ -449,11 +449,11 @@ class LibraryBotConfig(MyModel):
         default="client_only_setup"
     )
 
-    card_button_label = models.JSONField(
+    card_button_config = models.JSONField(
         default=None,
         blank=True,
         null=True,
-        help_text='for eg: {"description": "TransformIQ", "report": "Report"}'
+        help_text='for eg: {"description": {"show": true, "label": "TransformIQ"}, "report": {"show": true, "label": "TransformIQ"}, "audio_button": {"show": true, "label": ""}}'
     )
     feature_boxs = models.JSONField(
         default=None,
