@@ -14906,6 +14906,8 @@ def export_modules_to_csv(queryset):
         "Audio Link",
         "Category",
         "Test Code",
+        "Sticker",
+        "Card Button Config"
     ]
 
     # ---------------------------------------------------
@@ -14979,6 +14981,8 @@ def export_modules_to_csv(queryset):
             module.audio_link or "",
             module.list_name or "",
             module.test.test_code if module.test else "",
+            module.sticker or "",
+            module.card_button_config or ""
         ]
 
         row = base_row.copy()

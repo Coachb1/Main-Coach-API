@@ -740,6 +740,8 @@ class Module(MyModel):
         null=True,
         help_text='for eg: {"description": {"show": true, "label": "TransformIQ"}, "report": {"show": true, "label": "TransformIQ"}, "audio_button": {"show": true, "label": ""}}'
     )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
+
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
@@ -889,6 +891,7 @@ class CaseMappings(MyModel):
         blank=True,
         help_text="Action on the action button for a collection"
     )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         # Auto-generate action_name only if not provided
