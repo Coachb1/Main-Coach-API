@@ -1209,10 +1209,33 @@ class CourseAdmin(admin.ModelAdmin):
         try:
             decoded_file = csv_file.read().decode("utf-8-sig")
             reader = csv.DictReader(io.StringIO(decoded_file))
-
+            JSON_FIELDS = {"card_button_config"}
             created_count, updated_count = 0, 0
             for row in reader:
-                row = {k.strip().replace(" ", "_").lower(): sanitize_text(v.strip()) if len(v.strip()) > 0 else None for k, v in row.items()}  # clean whitespace
+                cleaned = {}
+                for k, v in row.items():
+                    key = k.strip().replace(" ", "_").lower()
+                    value = v.strip() if v.strip() else None
+
+
+                    if not value:
+                        cleaned[key] = None
+                        continue
+
+                    value = sanitize_text(value)
+
+                    # Parse JSON fields
+                    if key in JSON_FIELDS:
+                        try:
+                            value = json.loads(value)
+                        except json.JSONDecodeError:
+                            print(f"❌ Invalid JSON in {key}: {value}")
+                            value = None
+
+
+                    cleaned[key] = value
+                    
+                row = cleaned
                 print('row', row)
                 module_title = row.get("name").strip()
                 chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "BOOK"
@@ -1252,7 +1275,9 @@ class CourseAdmin(admin.ModelAdmin):
                         "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
                         "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
                         "key_words": row.get("keywords", "").strip() if row.get("keywords") else None,
-                        "transform_iq": iq or None
+                        "transform_iq": iq or None,
+                        "sticker": row.get("sticker").strip() if row.get("sticker") else None,
+                        "card_button_config": row.get("card_button_config") or None,
                     }
                 )
 
@@ -1325,7 +1350,7 @@ class CaseMappingsInline(admin.TabularInline):
 
 @admin.register(CaseMappings)
 class CaseMappingAdmin(admin.ModelAdmin):
-    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq", "action_name")
+    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq", "action_name", "sticker")
     search_fields = ("tab_name",)
     list_filter  = ('action_name',)
     ordering = ("-id",)
@@ -1371,11 +1396,16 @@ class CollectionAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = f"attachment; filename={filename}"
 
         writer = csv.writer(response)
-        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ"])
+        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ", "Action Name", "Sticker", "Collection Iframe Link", "Collection Iframe Title", "Collection Iframe Subtitle"])
 
         for collection in queryset:
             for item in collection.case_items.all():
-                writer.writerow([collection.collection_name, item.tab_name, item.embed_link, item.transform_iq])
+                writer.writerow([collection.collection_name, item.tab_name, 
+                                 item.embed_link,
+                                 item.transform_iq, item.action_name,
+                                 item.sticker, collection.iframe_link, 
+                                 collection.iframe_title, collection.iframe_subtitle
+                                 ])
 
         return response
 
@@ -1395,16 +1425,37 @@ class CollectionAdmin(admin.ModelAdmin):
             updated_cases = 0
 
             for row in reader:
-                row = {key.strip().lower().replace(' ', "_") : value for key, value in row.items()}
+                row = {key.strip().lower().replace(' ', "_") : sanitize_text(value) for key, value in row.items()}
                 collection_name = row["collection_name"].strip()
                 tab_name = row["tab_name"].strip()
                 embed_link = row["embed_link"].strip()
                 transform_iq = row['transform_iq'].strip() if 'transform_iq' in row else None
+                sticker = row['sticker'].strip() if 'sticker' in row else None
+                action_name = row['action_name'].strip() if 'action_name' in row else None
+
+
 
                 # Get or create Collection
                 collection, c_created = Collection.objects.get_or_create(
                     collection_name=collection_name
                 )
+
+                # for collections
+                update_fields = []
+                if "collection_iframe_link" in row :
+                    collection.iframe_link = row['collection_iframe_link'] 
+                    update_fields.append('iframe_link')
+                if "collection_iframe_title" in row:
+                    collection.iframe_title = row['collection_iframe_title'] 
+                    update_fields.append('iframe_title')
+                if "collection_iframe_subtitle" in row:
+                    collection.iframe_subtitle = row['collection_iframe_subtitle'] 
+                    update_fields.append('iframe_subtitle')
+
+                if len(update_fields) > 0:
+                    collection.save(update_fields=update_fields)
+
+
                 if c_created:
                     created_collections += 1
 
@@ -1412,7 +1463,10 @@ class CollectionAdmin(admin.ModelAdmin):
                 case, created = CaseMappings.objects.update_or_create(
                     collection=collection,
                     tab_name=tab_name,
-                    defaults={"embed_link": embed_link, "transform_iq": transform_iq}
+                    defaults={"embed_link": embed_link, 
+                              "transform_iq": transform_iq, 
+                              "sticker": sticker,
+                              "action_name": action_name}
                 )
 
                 if created:

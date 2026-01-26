@@ -55,6 +55,7 @@ class ApprovedCompanyIQSerializer(serializers.ModelSerializer):
             "transformation_iq_outlook",
             "source",
             "created",
+            "sticker"
         ]
         read_only_fields = fields
 
