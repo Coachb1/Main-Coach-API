@@ -740,6 +740,8 @@ class Module(MyModel):
         null=True,
         help_text='for eg: {"description": {"show": true, "label": "TransformIQ"}, "report": {"show": true, "label": "TransformIQ"}, "audio_button": {"show": true, "label": ""}}'
     )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
+
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
@@ -810,6 +812,19 @@ class ModuleProgress(MyModel):
     def __str__(self):
         return f"{self.user_progress.user.name} - {self.module.title} ({self.status})"
 
+class ModuleClientLike(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    client = models.ForeignKey(ClientUserInfo, on_delete=models.CASCADE)
+    total_likes = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ("module", "client")
+        indexes = [
+            models.Index(fields=["module", "client"]),
+        ]
+
+    def __str__(self):
+        return f"{self.module.title} - {self.client.name}: {self.total_likes}"
 
 
 class ModuleLike(MyModel): # likes for user
@@ -876,6 +891,7 @@ class CaseMappings(MyModel):
         blank=True,
         help_text="Action on the action button for a collection"
     )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         # Auto-generate action_name only if not provided
@@ -886,3 +902,5 @@ class CaseMappings(MyModel):
 
     def __str__(self):
         return f"{self.tab_name} ({self.collection.collection_name})"
+    
+
