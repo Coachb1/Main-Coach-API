@@ -14795,27 +14795,34 @@ def generate_endgame_result(test: Test, game_name, questions_with_answers, is_pe
 
 
 
-def merge_user_progress(package_data, progress_data):
+def merge_user_progress(package_data, progress_data, client_module_likes=None):
     """
-    Merges module-level user progress into package data.
+    Merges module-level user progress and client module likes into package data.
     
     package_data = CoursePackageSerializer output
     progress_data = UserProgressSerializer output (list)
+    client_module_likes = dict mapping module_id to total_likes (optional)
     """
 
-    # Build module_id → progress map for fast lookup
-    module_progress_map = {}
+    # Build module progress lookup map (O(n))
+    module_progress_map = {
+        mp["module"]: mp
+        for course_progress in progress_data
+        for mp in course_progress.get("module_progress", [])
+    }
 
-    for course_progress in progress_data:
-        for mp in course_progress.get("module_progress", []):
-            module_id = mp["module"]
-            module_progress_map[module_id] = mp
+    # Ensure likes dict exists
+    client_module_likes = client_module_likes or {}
 
-    # Attach progress to each module in each course
+    # Attach progress + likes
     for course in package_data.get("courses", []):
         for module in course.get("modules", []):
-            mid = module["id"]
-            module["progress"] = module_progress_map.get(mid, None)
+            mid = module["uid"]
+
+            progress = module_progress_map.get(mid, {})
+            progress["total_like"] = client_module_likes.get(mid, 0)
+
+            module["progress"] = progress
 
     return package_data
 
@@ -14899,6 +14906,8 @@ def export_modules_to_csv(queryset):
         "Audio Link",
         "Category",
         "Test Code",
+        "Sticker",
+        "Card Button Config"
     ]
 
     # ---------------------------------------------------
@@ -14972,6 +14981,8 @@ def export_modules_to_csv(queryset):
             module.audio_link or "",
             module.list_name or "",
             module.test.test_code if module.test else "",
+            module.sticker or "",
+            module.card_button_config or ""
         ]
 
         row = base_row.copy()

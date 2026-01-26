@@ -26,7 +26,8 @@ class CompanyIQAdmin(admin.ModelAdmin):
         "revenue_us_millions",
         "employees_full_time",
         "get_score",
-        "why_score"
+        "why_score",
+        "sticker"
     )
 
     list_filter = (
@@ -55,6 +56,7 @@ class CompanyIQAdmin(admin.ModelAdmin):
                 "company",
                 "industry",
                 "hq",
+                "sticker"
             )
         }),
         ("Business Scale", {
@@ -137,7 +139,7 @@ class CompanyIQAdmin(admin.ModelAdmin):
 
             messages.success(
                 request,
-                f"{created} CompanyIQ records created."
+                f"{created} CompanyIQ records created/updated."
             )
 
             if errors:
@@ -212,6 +214,7 @@ class CompanyIQAdmin(admin.ModelAdmin):
         writer.writerow([
             "Score",
             "Score Justification",
+            "Sticker",
             "Company",
             "Industry",
             "HQ",
@@ -230,8 +233,9 @@ class CompanyIQAdmin(admin.ModelAdmin):
 
         for obj in queryset.iterator():
             writer.writerow([
-                obj.score.get("score", "N/A"),
-                obj.score.get("justification", "N/A"),
+                obj.score.get("score", ""),
+                obj.score.get("justification", ""),
+                obj.sticker or "",
                 obj.company,
                 obj.industry,
                 obj.hq,

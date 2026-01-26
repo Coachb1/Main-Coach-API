@@ -43,6 +43,7 @@ CSV_FIELD_MAP = {
     "Cloud / Tech Stack Signals": "cloud_tech_stack_signals",
     "AI Use Cases": "ai_use_cases",
     "Tranformation IQ - Outlook": "transformation_iq_outlook",
+    "Sticker": "sticker",
 }
 
 
@@ -234,6 +235,7 @@ def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
                     "ai_digital_initiatives": parse_list(company_info.get("ai_digital_initiatives")),
                     "cloud_tech_stack_signals": parse_list(company_info.get("cloud_tech_stack_signals")),
                     "ai_use_cases": parse_list(company_info.get("ai_use_cases")),
+                    "sticker": company_info.get("sticker", None)
                 }
                 if generate_outlook:
                     payload["transformation_iq_outlook"] = generic_completion(
@@ -268,6 +270,7 @@ def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
                     "ai_digital_initiatives": parse_list(data.get("ai_digital_initiatives")),
                     "cloud_tech_stack_signals": parse_list(data.get("cloud_tech_stack_signals")),
                     "ai_use_cases": parse_list(data.get("ai_use_cases")),
+                    "sticker": data.get("sticker", None),
                 }
 
                 transformation_iq_outlook = data.get("transformation_iq_outlook", "").strip()
