@@ -810,6 +810,19 @@ class ModuleProgress(MyModel):
     def __str__(self):
         return f"{self.user_progress.user.name} - {self.module.title} ({self.status})"
 
+class ModuleClientLike(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    client = models.ForeignKey(ClientUserInfo, on_delete=models.CASCADE)
+    total_likes = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ("module", "client")
+        indexes = [
+            models.Index(fields=["module", "client"]),
+        ]
+
+    def __str__(self):
+        return f"{self.module.title} - {self.client.name}: {self.total_likes}"
 
 
 class ModuleLike(MyModel): # likes for user
@@ -886,3 +899,5 @@ class CaseMappings(MyModel):
 
     def __str__(self):
         return f"{self.tab_name} ({self.collection.collection_name})"
+    
+
