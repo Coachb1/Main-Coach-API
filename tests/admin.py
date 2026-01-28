@@ -1211,9 +1211,10 @@ class CourseAdmin(admin.ModelAdmin):
             reader = csv.DictReader(io.StringIO(decoded_file))
             JSON_FIELDS = {"card_button_config"}
             created_count, updated_count = 0, 0
+            skiped_rows = []
             for row in reader:
                 cleaned = {}
-                for k, v in row.items():
+                for index, (k, v) in enumerate(row.items()):
                     key = k.strip().replace(" ", "_").lower()
                     value = v.strip() if v.strip() else None
 
@@ -1237,11 +1238,12 @@ class CourseAdmin(admin.ModelAdmin):
                     
                 row = cleaned
                 print('row', row)
-                module_title = row.get("name").strip()
+                module_title = row.get("name")
+                if not module_title or not str(module_title).strip():
+                    skiped_rows.append(index+1)
+                    continue # skip invalid rows
                 chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "BOOK"
 
-                if not module_title:
-                    continue
                 test = None
                 if row.get('test_code'):
                     test = Test.objects.filter(deleted=False, test_code=row.get('test_code')).first()
@@ -1253,32 +1255,49 @@ class CourseAdmin(admin.ModelAdmin):
                 print(row.keys())
                 # detect all client indexes dynamically
                 iq = extract_transform_iq(row)
+
+                # Define all possible fields and their mappings from the row
+                field_mapping = {
+                    "module_name": module_title,
+                    "test": test,
+                    "chapter_type": chapter_type,
+                    "author": row.get("author"),
+                    "tag": row.get("industry"),
+                    "description": row.get("description"),
+                    "business_outcome": row.get("business_outcome"),
+                    "implementation_complexity": row.get("implementation_complexity"),
+                    "unexpected_outcome": row.get("unexpected_outcome"),
+                    "function": row.get("function"),
+                    "video_url": row.get("video_link"),
+                    "audio_link": row.get("audio_link"),
+                    "image_link": row.get("image_link"),
+                    "embed_link": row.get("report_link"),
+                    "list_name": row.get("category"),
+                    "emerging_player": row.get("latest/recent") or row.get("emerging_player"),
+                    "startup": row.get("startup"),
+                    "key_words": row.get("keywords"),
+                    "transform_iq": iq,
+                    "sticker": row.get("sticker"),
+                    "card_button_config": row.get("card_button_config"),
+                }
+
+                # 1. Filter out fields that are None or empty strings to ensure we only update "available" data
+                # 2. Special handling for booleans (like emerging_player and startup)
+                defaults = {}
+                for field, value in field_mapping.items():
+                    if value is not None and str(value).strip() != "":
+                        # Process specific fields that need formatting
+                        if field in ["emerging_player", "startup"]:
+                            defaults[field] = str(value).strip().upper() == "TRUE"
+                        elif field in ["key_words", "sticker"]:
+                            defaults[field] = str(value).strip()
+                        else:
+                            defaults[field] = value
+                    
                 module, created = Module.objects.update_or_create(
                     title=module_title,
                     course=obj,  # attach to this course
-                    defaults={
-                        "module_name": module_title,
-                        "test": test,
-                        "chapter_type": chapter_type,  # can be adjusted dynamically
-                        "author": row.get("author"),
-                        "tag": row.get("industry", "General"),
-                        "description": row.get("description"),
-                        "business_outcome": row.get("business_outcome"),
-                        "implementation_complexity": row.get("implementation_complexity"),
-                        "unexpected_outcome": row.get("unexpected_outcome"),
-                        "function": row.get("function"),
-                        "video_url": row.get("video_link"),
-                        "audio_link": row.get("audio_link"),
-                        "image_link": row.get("image_link"),
-                        "embed_link": row.get("report_link"),
-                        "list_name": row.get("category"),
-                        "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
-                        "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
-                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None,
-                        "transform_iq": iq or None,
-                        "sticker": row.get("sticker").strip() if row.get("sticker") else None,
-                        "card_button_config": row.get("card_button_config") or None,
-                    }
+                    defaults=defaults
                 )
 
                 if created:
@@ -1288,7 +1307,7 @@ class CourseAdmin(admin.ModelAdmin):
 
             self.message_user(
                 request,
-                f"✅ {created_count} modules created and {updated_count} updated from CSV.",
+                f"✅ {created_count} modules created and {updated_count} updated from CSV. \n skiped rows: {skiped_rows}",
                 level=messages.SUCCESS,
             )
 
