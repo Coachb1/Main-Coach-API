@@ -6,7 +6,7 @@ from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 class JobAidQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobAidQuestion
-        fields = ["id", 'uid',"question", "question_type", "description", "dropdowns", "section"]
+        fields = ["id", 'uid',"question", "question_type", "description", "dropdowns", "section", "is_multi_select", "allow_custom_text"]
 
 
 class JobAidSerializer(serializers.ModelSerializer):
