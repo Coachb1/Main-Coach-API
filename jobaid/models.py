@@ -51,6 +51,18 @@ class JobAidQuestion(MyModel):
     description = models.TextField(blank=True, null=True)
     dropdowns = models.TextField(blank=True, null=True, help_text="Comma-separated values (only if type is dropdown)")
     validation_prompt = models.TextField(verbose_name="Validation Prompt", default=get_prompt("validation"))
+    is_multi_select = models.BooleanField(
+        default=False,
+        verbose_name="Multi-select",
+        help_text="Enable only for dropdown fields"
+    )
+
+    allow_custom_text = models.BooleanField(
+        default=False,
+        verbose_name="Allow custom input",
+        help_text="Users can enter values not in predefined options"
+    )
+
     class Meta:
         verbose_name = "Job Aid Question"
         verbose_name_plural = "Job Aid Questions"

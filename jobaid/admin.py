@@ -7,7 +7,7 @@ from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 class JobAidQuestionInline(admin.TabularInline):
     model = JobAidQuestion
     extra = 0
-    fields = ("question","validation_prompt", "question_type", "description", "dropdowns", "section")
+    fields = ("question","validation_prompt", "question_type", "description", "dropdowns", "section",  "is_multi_select", "allow_custom_text")
     show_change_link = True
 
 
@@ -28,7 +28,7 @@ class JobAidAdmin(admin.ModelAdmin):
 
 @admin.register(JobAidQuestion)
 class JobAidQuestionAdmin(admin.ModelAdmin):
-    list_display = ("job_aid", "question", "question_type", "description", "dropdowns", "section")
+    list_display = ("job_aid", "question", "question_type", "description", "dropdowns", "section",  "is_multi_select", "allow_custom_text")
     list_filter = ("question_type", "job_aid")
     search_fields = ("question", "description", "dropdowns")
 
