@@ -16,6 +16,10 @@ from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 from .serializers import JobAidSerializer, JobAidSessionSerializer
 from users.models import User  # Adjust if your user model import is different
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, inline_serializer 
+from rest_framework import serializers
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +34,19 @@ class JobAidViewSet(ApiViewSet,
     serializer_class = JobAidSerializer
     lookup_field = 'uid'  # Assuming you want to use 'uid' as the lookup field
 
-
+    @extend_schema(
+        summary="Get job aid details",
+        description="Retrieve a job aid along with its questions using jobaid_id.",
+        parameters=[
+            OpenApiParameter("jobaid_id", OpenApiTypes.STR, required=True, description="JobAid UID"),
+        ],
+        responses={
+            200: JobAidSerializer,
+            400: OpenApiResponse(description="Missing jobaid_id"),
+            404: OpenApiResponse(description="JobAid not found"),
+        },
+        tags=["Job Aid"],
+    )
     @action(methods=['GET'], detail=False, url_path='get-job-aid')
     def get_job_aid(self, request):
         """
@@ -48,7 +64,22 @@ class JobAidViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f'Error in get_job_aid: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    @extend_schema(
+        summary="Validate job aid answers",
+        description="Runs AI validation against a job aid question and user answers.",
+        request=inline_serializer(
+            name="ValidateJobAidRequest",
+            fields={
+                "qna": serializers.JSONField(),
+                "question_id": serializers.CharField(),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(description="Validation result"),
+            400: OpenApiResponse(description="Invalid input"),
+        },
+        tags=["Job Aid"],
+    )
     @action(methods=['POST'], detail=False, url_path='validate-job-aid')
     def validate_job_aid(self, request):
         """
@@ -83,6 +114,34 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in validate_job_aid: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        summary="Generate job aid report",
+        description=(
+            "Generates an AI report and/or AI prompt based on user answers.\n\n"
+            "Creates a session record and optionally returns a report URL."
+        ),
+        request=inline_serializer(
+            name="GenerateJobAidReportRequest",
+            fields={
+                "qna": serializers.JSONField(),
+                "useremail": serializers.EmailField(),
+                "name": serializers.CharField(required=False),
+                "jobaid": serializers.CharField(),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="GenerateJobAidReportResponse",
+                fields={
+                    "session_id": serializers.IntegerField(),
+                    "report_url": serializers.URLField(allow_null=True),
+                    "generated_prompt": serializers.JSONField(allow_null=True),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid input"),
+        },
+        tags=["Job Aid"],
+    )
     @action(methods=['POST'], detail=False, url_path='generate-report')
     def generate_report(self, request):
         """
@@ -179,7 +238,26 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in generate_report: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
+    @extend_schema(
+        summary="Get job aid session report",
+        description="Retrieve job aid session details along with job aid configuration.",
+        parameters=[
+            OpenApiParameter("session_id", OpenApiTypes.STR, required=True),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="SessionReportResponse",
+                    fields={
+                        "session": JobAidSessionSerializer(),
+                        "jobaid": JobAidSerializer(),
+                    },
+                )
+            ),
+            400: OpenApiResponse(description="Missing session_id"),
+        },
+        tags=["Job Aid"],
+    )
     @action(methods=['GET'], detail=False, url_path='get-session-report')
     def get_session_report(self, request):
         """
@@ -209,6 +287,26 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f"Error in get_session_report: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    @extend_schema(
+        summary="List job aid sessions",
+        description="Retrieve all sessions for a job aid. Optionally filter by email.",
+        parameters=[
+            OpenApiParameter("jobaid_id", OpenApiTypes.STR, required=True),
+            OpenApiParameter("email", OpenApiTypes.EMAIL, required=False),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="JobAidSessionsResponse",
+                    fields={
+                        "session": JobAidSessionSerializer(many=True),
+                        "jobaid": JobAidSerializer(),
+                    },
+                )
+            )
+        },
+        tags=["Job Aid"],
+    )
     @action(methods=['GET'], detail=False, url_path='job-aid-sessions')
     def get_job_aid_sessions(self, request):
 
@@ -234,6 +332,27 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in job-aid-sessions: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        methods=["POST"],
+        summary="Like or unlike job aid session",
+        request=inline_serializer(
+            name="LikeSessionRequest",
+            fields={
+                "session_id": serializers.CharField(),
+                "email": serializers.EmailField(),
+                "like_count": serializers.IntegerField(),
+            },
+        ),
+        responses={200: JobAidSessionSerializer},
+        tags=["Job Aid - Leaderboard"],
+    )
+
+    @extend_schema(
+        methods=["GET"],
+        summary="Get liked session details",
+        responses={200: JobAidSessionSerializer},
+        tags=["Job Aid - Leaderboard"],
+    )
     @action(methods=['POST', "GET"], detail=False, url_path='job-aid-leaderboard/like')
     def job_aid_leaderboard_like(self, request):
         try:
@@ -275,6 +394,15 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in job_aid_likes: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        summary="Get job aid leaderboard",
+        description="Returns sessions ordered by like count.",
+        parameters=[
+            OpenApiParameter("jobaid_id", OpenApiTypes.STR, required=True),
+        ],
+        responses={200: JobAidSessionSerializer(many=True)},
+        tags=["Job Aid - Leaderboard"],
+    )
     @action(methods=['GET'], detail=False, url_path='job-aid-leaderboard')
     def job_aid_leaderboard(self, request):
         try:

@@ -19,6 +19,9 @@ from commons.viewset import ApiViewSet
 from tests.helpers import merge_user_progress
 from tests.models import Course, CoursePackage, ModuleForLater, ModuleLike, ModuleProgress, UserProgress
 from users.models import ClientUserInfo, User
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, inline_serializer
+from rest_framework import serializers
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,19 @@ class CourseViewSet(ApiViewSet,
         """Helper to return consistent error responses."""
         return Response({"error": message}, status=code)
 
+    @extend_schema(
+        summary="Fetch course",
+        description="Retrieve course details using course_uid.",
+        parameters=[
+            OpenApiParameter("course_uid", OpenApiTypes.STR, required=True),
+        ],
+        responses={
+            200: OpenApiResponse(response=CourseSerializer(many=True)),
+            400: OpenApiResponse(description="Missing course_uid"),
+            404: OpenApiResponse(description="Course not found"),
+        },
+        tags=["Courses"],
+    )
     @action(methods=["GET"], detail=False, url_path="fetch-course")
     def fetch_course(self, request, *args, **kwargs):
         """
@@ -71,7 +87,32 @@ class CourseViewSet(ApiViewSet,
             return self._error_response("Unexpected server error", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     
-
+    @extend_schema(
+        methods=["GET"],
+        summary="Get course progress",
+        description="Fetch a user's progress for a specific course.",
+        parameters=[
+            OpenApiParameter("user_uid", OpenApiTypes.STR, required=True),
+            OpenApiParameter("course_id", OpenApiTypes.STR, required=True),
+        ],
+        responses={200: UserProgressSerializer},
+        tags=["Courses"],
+    )
+    @extend_schema(
+        methods=["POST"],
+        summary="Update module progress",
+        description="Update progress for a module inside a course.",
+        request=inline_serializer(
+            name="UpdateModuleProgressRequest",
+            fields={
+                "user_uid": serializers.CharField(),
+                "course_id": serializers.CharField(),
+                "module": serializers.DictField(),
+            },
+        ),
+        responses={200: UserProgressSerializer},
+        tags=["Courses"],
+    )
     @action(detail=False, methods=["GET", "POST"], url_path="course-progress")
     def get_progress(self, request):
         """
@@ -161,6 +202,17 @@ class CourseViewSet(ApiViewSet,
             serializer = UserProgressSerializer(user_progress)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Get course package",
+        description="Retrieve course package data with optional user progress merge.",
+        parameters=[
+            OpenApiParameter("package_id", OpenApiTypes.STR, required=True),
+            OpenApiParameter("client_name", OpenApiTypes.STR),
+            OpenApiParameter("user_id_for_progress", OpenApiTypes.STR),
+        ],
+        responses={200: OpenApiResponse(description="Package data with optional progress")},
+        tags=["Courses"],
+    )
     @action(detail=False, methods=["GET"], url_path="course-package")
     def get_course_package(self, request):
 
@@ -205,6 +257,15 @@ class CourseViewSet(ApiViewSet,
 
         return Response(data['package_data'], status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Get module progress for user",
+        parameters=[
+            OpenApiParameter("module_id", OpenApiTypes.STR, required=True),
+            OpenApiParameter("user_id", OpenApiTypes.STR, required=True),
+        ],
+        responses={200: ModuleProgressSerializer},
+        tags=["Course Modules"],
+    )
     @action(detail=False, methods=["GET"], url_path="module-user-data")
     def get_module(self, request):
         try: 
@@ -237,6 +298,33 @@ class CourseViewSet(ApiViewSet,
 
     # ---------- MODULE LIKE ----------
 
+    @extend_schema(
+        methods=["GET"],
+        summary="Check module like",
+        parameters=[
+            OpenApiParameter("user_id", OpenApiTypes.STR),
+            OpenApiParameter("client_only_likes", OpenApiTypes.BOOL),
+        ],
+        responses={200: OpenApiResponse(description="Like status / total likes")},
+        tags=["Course Modules"],
+    )
+    @extend_schema(
+        methods=["POST"],
+        summary="Toggle module like",
+        request=inline_serializer(
+            name="ModuleLikeRequest",
+            fields={
+                "user_id": serializers.CharField(required=False),
+                "likes": serializers.IntegerField(required=False),
+                "client_only_likes": serializers.BooleanField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(description="Unliked / total likes updated"),
+            201: ModuleLikeSerializer,
+        },
+        tags=["Course Modules"],
+    )
     @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/like")
     def module_like(self, request, module_id=None):
         """
@@ -275,6 +363,23 @@ class CourseViewSet(ApiViewSet,
             return Response(ModuleLikeSerializer(like).data, status=status.HTTP_201_CREATED)
 
     # ---------- LISTEN LATER ----------
+    @extend_schema(
+        methods=["GET"],
+        summary="Check listen later status",
+        parameters=[OpenApiParameter("user_id", OpenApiTypes.STR, required=True)],
+        responses={200: ModuleForLaterSerializer},
+        tags=["Course Modules"],
+    )
+    @extend_schema(
+        methods=["POST"],
+        summary="Toggle listen later",
+        request=inline_serializer(
+            name="ListenLaterRequest",
+            fields={"user_id": serializers.CharField()},
+        ),
+        responses={200: OpenApiResponse(description="Removed"), 201: ModuleForLaterSerializer},
+        tags=["Course Modules"],
+    )
     @action(detail=False, methods=["get", "post"], url_path=r"modules/(?P<module_id>[^/.]+)/later")
     def listen_later(self, request, module_id=None):
         """
@@ -296,6 +401,25 @@ class CourseViewSet(ApiViewSet,
                 return Response({"message": "Removed from Listen Later"}, status=status.HTTP_200_OK)
             return Response(ModuleForLaterSerializer(entry).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        summary="Get liked & saved modules",
+        parameters=[
+            OpenApiParameter("course_id", OpenApiTypes.STR, required=True),
+            OpenApiParameter("user_id", OpenApiTypes.STR, required=True),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="LikedLaterResponse",
+                    fields={
+                        "liked": ModuleLikeSerializer(many=True),
+                        "later": ModuleForLaterSerializer(many=True),
+                    },
+                )
+            )
+        },
+        tags=["Course Modules"],
+    )
     @action(detail=False, methods=["GET"], url_path=r"get-liked-and-for-later-modules")
     def get_liked_and_later_modules(self, request):
         try:
@@ -318,6 +442,16 @@ class CourseViewSet(ApiViewSet,
             logger.error(f"Error fetching liked and saved modules: {e}")
             return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        summary="Course leaderboard report",
+        description="Returns ranked progress report for users in a course package.",
+        parameters=[
+            OpenApiParameter("package_course_id", OpenApiTypes.STR, required=True),
+            OpenApiParameter("client_id", OpenApiTypes.STR),
+        ],
+        responses={200: OpenApiResponse(description="Paginated leaderboard report")},
+        tags=["Course Reports"],
+    )
     @action(detail=False, methods=["get"], url_path="course-report")
     def report(self, request):
         """
@@ -406,6 +540,16 @@ class CourseViewSet(ApiViewSet,
 
         return Response(report_data)
 
+    @extend_schema(
+        summary="AI Pulse report",
+        description="Returns module demand analytics per client.",
+        parameters=[
+            OpenApiParameter("package_course_id", OpenApiTypes.STR, required=True),
+            OpenApiParameter("client_name", OpenApiTypes.STR, required=True),
+        ],
+        responses={200: OpenApiResponse(description="AI Pulse data")},
+        tags=["Course Reports"],
+    )
     @action(methods=["GET"], detail=False, url_path="ai-pulse-report-data")
     def ai_pulse(self, request, *args, **kwargs):
         try:
