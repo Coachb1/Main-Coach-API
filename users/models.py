@@ -484,6 +484,7 @@ class LibraryBotConfig(MyModel):
         }
         """
             )
+    access_password = models.CharField(max_length=25, default='Client@2026')
 
     class Meta:
         db_table = "library_bot_config"
@@ -522,6 +523,8 @@ class PortalPageConfig(MyModel):
         blank=True,
         default="client_only_setup"
     )
+    access_password = models.CharField(max_length=25, default='Client@2026')
+
 
     class Meta:
         db_table = "portal_page_config"
