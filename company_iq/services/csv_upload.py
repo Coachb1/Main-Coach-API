@@ -64,33 +64,39 @@ CSV_REQUIRED_FIELDS = [
     "AI Use Cases",
 ]
 
+def parse_int_field(value, field_name):
+    """
+    Accepts numbers like:
+    6200
+    6,200
+    6,200.00
+    6200.0
+
+    Returns int or raises ValidationError
+    """
+    if value is None or value == "":
+        return None
+
+    try:
+        cleaned = value.replace(",", "").strip()
+        return int(float(cleaned))
+    except ValueError:
+        raise ValidationError(
+            f"Invalid integer for {field_name}: {value}"
+        )
+    
 def normalize_csv_row(row):
-    def parse_int_field(value, field_name):
-        """
-        Accepts numbers like:
-        6200
-        6,200
-        6,200.00
-        6200.0
-
-        Returns int or raises ValidationError
-        """
-        if value is None or value == "":
-            raise ValidationError(f"{field_name} is required")
-
-        try:
-            cleaned = value.replace(",", "").strip()
-            return int(float(cleaned))
-        except ValueError:
-            raise ValidationError(
-                f"Invalid integer for {field_name}: {value}"
-            )
 
     normalized = {}
 
     for csv_key, model_key in CSV_FIELD_MAP.items():
         raw = row.get(csv_key)
         if raw is None:
+            normalized[model_key] = None
+            continue
+
+        if not raw.strip():
+            normalized[model_key] = None
             continue
 
         value = sanitize_text(raw.strip())
@@ -102,9 +108,13 @@ def normalize_csv_row(row):
                 normalized[model_key] = parse_int_field(value, model_key)
             except ValueError:
                 raise ValidationError(f"Invalid integer for {model_key}: {value}")
+
+
+        elif model_key in {"ai_cloud_leadership_roles", "ai_digital_initiatives",
+                "cloud_tech_stack_signals", "ai_use_cases"}:
+            normalized[model_key] = parse_list(value)
         else:
             normalized[model_key] = value
-
     return normalized
 
 
@@ -150,7 +160,7 @@ def parse_list(value):
 
 
 def validate_row(row, required_fields):
-    missing = [f for f in required_fields if not row.get(f)]
+    missing = [f for f in required_fields if str(row.get(f, "")).strip() == "" ]
     if missing:
         raise ValidationError(f"Missing required fields: {missing}")
 
@@ -159,21 +169,32 @@ def upsert_companyiq(existing_obj, data, source, approved=False):
     """
     Update only if NOT approved.
     Approved records are immutable.
+    Only updates fields that are provided in 'data' and are not None/empty.
     """
+
     if existing_obj:
-        # if existing_obj.approved :
-        #     return "skipped_approved"
+        # if getattr(existing_obj, 'approved', False):
+        #      return "skipped_approved"
 
+        # Only update fields that are actually in the data and have values
+        updated = False
         for field, value in data.items():
-            setattr(existing_obj, field, value)
+            # Check if the value is meaningful (not None and not empty string)
+            if value is not None and (value != ""):
+                setattr(existing_obj, field, value)
+                updated = True
+        
+        if updated or existing_obj.source != source or existing_obj.approved != approved:
+            existing_obj.source = source
+            existing_obj.approved = approved
+            existing_obj.save()
+            return "updated"
+        return "no_change"
 
-        existing_obj.source = source
-        existing_obj.approved = approved
-        existing_obj.save()
-        return "updated"
-
+    # For creation, we still want to filter out None/Empty to avoid DB constraint issues or bad data
+    create_data = {k: v for k, v in data.items() if v is not None and (v != "")}
     CompanyIQ.objects.create(
-        **data,
+        **create_data,
         source=source,
         approved=approved,
     )
@@ -204,16 +225,26 @@ def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
             logger.info(f"Processing line {line_no + 1}: {row.get('Company', 'Unknown')}")
             use_llm = row.get("Use LLM", "").strip().lower() == "true"
 
-            validate_row(row, LLM_REQUIRED_FIELDS if use_llm else CSV_REQUIRED_FIELDS)
             data = normalize_csv_row(row)
 
-            company_name = data["company"]
+            company_name = data.get('company')
+            if company_name is None or company_name == "":
+                errors.append(f"company requried! in row: {line_no}")
+                continue
             industry = data.get('industry')
             hq = data.get('hq')
 
             existing = get_existing_company_iq(company_name)
 
             use_llm = data.get("use_llm", False)
+            req_fields = CSV_REQUIRED_FIELDS
+            logger.info(f"use_llm: {use_llm}")
+            logger.info(f"existing: {existing}")
+            if use_llm or existing:
+                req_fields = LLM_REQUIRED_FIELDS
+
+            validate_row(row, req_fields)
+
 
             # --------------------
             # LLM FLOW
@@ -235,7 +266,7 @@ def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
                     "ai_digital_initiatives": parse_list(company_info.get("ai_digital_initiatives")),
                     "cloud_tech_stack_signals": parse_list(company_info.get("cloud_tech_stack_signals")),
                     "ai_use_cases": parse_list(company_info.get("ai_use_cases")),
-                    "sticker": company_info.get("sticker", None)
+                    "sticker": data.get("sticker", None)
                 }
                 if generate_outlook:
                     payload["transformation_iq_outlook"] = generic_completion(
@@ -264,24 +295,26 @@ def import_companyiq_csv(file, generate_score=False, generate_outlook=False):
                     "company": company_name,
                     "industry": industry,
                     "hq": hq,
-                    "revenue_us_millions": int(data["revenue_us_millions"]),
-                    "employees_full_time": int(data["employees_full_time"]),
-                    "ai_cloud_leadership_roles": parse_list(data.get("ai_cloud_leadership_roles")),
-                    "ai_digital_initiatives": parse_list(data.get("ai_digital_initiatives")),
-                    "cloud_tech_stack_signals": parse_list(data.get("cloud_tech_stack_signals")),
-                    "ai_use_cases": parse_list(data.get("ai_use_cases")),
-                    "sticker": data.get("sticker", None),
+                    "revenue_us_millions": data.get("revenue_us_millions"),
+                    "employees_full_time": data.get("employees_full_time"),
+                    "ai_cloud_leadership_roles": data.get("ai_cloud_leadership_roles"),
+                    "ai_digital_initiatives": data.get("ai_digital_initiatives"),
+                    "cloud_tech_stack_signals": data.get("cloud_tech_stack_signals"),
+                    "ai_use_cases": data.get("ai_use_cases"),
+                    "sticker": data.get("sticker"),
+                    "transformation_iq_outlook": data.get("transformation_iq_outlook"),
                 }
+                
 
-                transformation_iq_outlook = data.get("transformation_iq_outlook", "").strip()
-                if not transformation_iq_outlook and generate_outlook:
+                transformation_iq_outlook = data.get("transformation_iq_outlook", "")
+                if  (transformation_iq_outlook is None or transformation_iq_outlook == "") and generate_outlook:
                     transformation_iq_outlook = generic_completion(
                             Template(company_iq_prompts.OUTLOOKPROMPT).substitute(
                                 input_data=payload
                             )
                         )
                 
-                payload["transformation_iq_outlook"] = transformation_iq_outlook
+                    payload["transformation_iq_outlook"] = transformation_iq_outlook
 
 
                 approved_flag = data.get("approved", False)

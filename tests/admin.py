@@ -4,6 +4,8 @@ from import_export.admin import ExportActionMixin
 from commons.utils import sanitize_text
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
+from tests.admin_helpers import CSVValidationError, normalize_row_collections, upsert_cases, upsert_collections, validate_business_rules, validate_row
+from django.db import transaction
 from tests.models import (
     Test,
     TestQuestion,
@@ -1435,72 +1437,65 @@ class CollectionAdmin(admin.ModelAdmin):
     # -------------------------------------------------------------------
     def changelist_view(self, request, extra_context=None):
         if request.method == "POST" and "upload_csv" in request.FILES:
-            file = request.FILES["upload_csv"]
-            decoded = file.read().decode("utf-8-sig")
-            reader = csv.DictReader(io.StringIO(decoded))
+            try:
+                file = request.FILES["upload_csv"]
+                decoded = file.read().decode("utf-8-sig")
+                reader = csv.DictReader(io.StringIO(decoded))
 
-            created_collections = 0
-            created_cases = 0
-            updated_cases = 0
+                rows = []
+                errors_list = []
+                for i, row in enumerate(reader, start=1):
+                    clean = normalize_row_collections(row)
+                    error_list = validate_row(clean, i)
+                    if error_list:
+                        errors_list.append(error_list)
+                        continue
+                    rows.append(clean)
 
-            for row in reader:
-                row = {key.strip().lower().replace(' ', "_") : sanitize_text(value) for key, value in row.items()}
-                collection_name = row["collection_name"].strip()
-                tab_name = row["tab_name"].strip()
-                embed_link = row["embed_link"].strip()
-                transform_iq = row['transform_iq'].strip() if 'transform_iq' in row else None
-                sticker = row['sticker'].strip() if 'sticker' in row else None
-                action_name = row['action_name'].strip() if 'action_name' in row else None
+                # 🔥 Business validation
+                rows, errors = validate_business_rules(rows)
+                if errors:
+                    errors_list.extend(errors)
 
 
+                logger.info(f"valid Rows: {rows}")
+                # ✅ Only if everything valid, touch DB
+                with transaction.atomic():
+                    collections_map, created_collections = upsert_collections(rows)
+                    created_cases, updated_cases = upsert_cases(rows, collections_map)
 
-                # Get or create Collection
-                collection, c_created = Collection.objects.get_or_create(
-                    collection_name=collection_name
+                self.message_user(
+                    request,
+                    f"✔ Imported — {created_collections} collections, "
+                    f"{created_cases} new cases, {updated_cases} updated.",
+                    level=messages.SUCCESS
                 )
 
-                # for collections
-                update_fields = []
-                if "collection_iframe_link" in row :
-                    collection.iframe_link = row['collection_iframe_link'] 
-                    update_fields.append('iframe_link')
-                if "collection_iframe_title" in row:
-                    collection.iframe_title = row['collection_iframe_title'] 
-                    update_fields.append('iframe_title')
-                if "collection_iframe_subtitle" in row:
-                    collection.iframe_subtitle = row['collection_iframe_subtitle'] 
-                    update_fields.append('iframe_subtitle')
+                if errors_list:
+                    err_str = ("| \n").join(errors_list)
+                    self.message_user(  
+                        request,
+                        f"Errors: {err_str}",
+                        level=messages.SUCCESS
+                    )
 
-                if len(update_fields) > 0:
-                    collection.save(update_fields=update_fields)
-
-
-                if c_created:
-                    created_collections += 1
-
-                # Get or update CaseMappings
-                case, created = CaseMappings.objects.update_or_create(
-                    collection=collection,
-                    tab_name=tab_name,
-                    defaults={"embed_link": embed_link, 
-                              "transform_iq": transform_iq, 
-                              "sticker": sticker,
-                              "action_name": action_name}
+            except CSVValidationError as e:
+                # ✅ Proper admin error, no crash
+                self.message_user(
+                    request,
+                    f"CSV Validation Error:\n{str(e)}",
+                    level=messages.ERROR
                 )
 
-                if created:
-                    created_cases += 1
-                else:
-                    updated_cases += 1
+            except Exception as e:
+                # ✅ Catch unexpected bugs safely
+                self.message_user(
+                    request,
+                    f"Unexpected Error: {str(e)}",
+                    level=messages.ERROR
+                )
 
-            self.message_user(
-                request,
-                f"✔ Imported successfully — {created_collections} collections, "
-                f"{created_cases} new items, {updated_cases} updated.",
-                level=messages.SUCCESS
-            )
+            # ✅ CRITICAL LINE
+            return redirect(request.get_full_path())
 
         return super().changelist_view(request, extra_context)
-
-
-
