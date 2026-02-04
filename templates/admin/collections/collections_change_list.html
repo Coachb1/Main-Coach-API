@@ -4,7 +4,7 @@
 <div style="margin-bottom: 1rem;">
     <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}
-        <input type="file" name="upload_csv" accept=".csv" />
+        <input required type="file" name="upload_csv" accept=".csv" />
         <button type="submit" class="button">Upload CSV</button>
     </form>
 </div>
