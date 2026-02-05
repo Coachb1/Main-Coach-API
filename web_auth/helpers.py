@@ -28,7 +28,7 @@ def create_new_tokens(entity_type: str,
         exp=now + timezone.timedelta(days=1000),
     )
 
-    return {"refresh": token.refresh_token, "access": token.access_token}
+    return {"refresh": str(token.refresh_token), "access": str(token.access_token)}
 
 
 def verify_refresh_token(jwt_token) -> RefreshToken:

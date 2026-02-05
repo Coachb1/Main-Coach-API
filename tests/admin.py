@@ -4,6 +4,8 @@ from import_export.admin import ExportActionMixin
 from commons.utils import sanitize_text
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
+from tests.admin_helpers import CSVValidationError, normalize_row_collections, upsert_cases, upsert_collections, validate_business_rules, validate_row
+from django.db import transaction
 from tests.models import (
     Test,
     TestQuestion,
@@ -1209,16 +1211,41 @@ class CourseAdmin(admin.ModelAdmin):
         try:
             decoded_file = csv_file.read().decode("utf-8-sig")
             reader = csv.DictReader(io.StringIO(decoded_file))
-
+            JSON_FIELDS = {"card_button_config"}
             created_count, updated_count = 0, 0
+            skiped_rows = []
             for row in reader:
-                row = {k.strip().replace(" ", "_").lower(): sanitize_text(v.strip()) if len(v.strip()) > 0 else None for k, v in row.items()}  # clean whitespace
+                cleaned = {}
+                for index, (k, v) in enumerate(row.items()):
+                    key = k.strip().replace(" ", "_").lower()
+                    value = v.strip() if v.strip() else None
+
+
+                    if not value:
+                        cleaned[key] = None
+                        continue
+
+                    value = sanitize_text(value)
+
+                    # Parse JSON fields
+                    if key in JSON_FIELDS:
+                        try:
+                            value = json.loads(value)
+                        except json.JSONDecodeError:
+                            print(f"❌ Invalid JSON in {key}: {value}")
+                            value = None
+
+
+                    cleaned[key] = value
+                    
+                row = cleaned
                 print('row', row)
-                module_title = row.get("name").strip()
+                module_title = row.get("name")
+                if not module_title or not str(module_title).strip():
+                    skiped_rows.append(index+1)
+                    continue # skip invalid rows
                 chapter_type = row.get("chapter_type").strip().upper() if row.get("chapter_type") else "BOOK"
 
-                if not module_title:
-                    continue
                 test = None
                 if row.get('test_code'):
                     test = Test.objects.filter(deleted=False, test_code=row.get('test_code')).first()
@@ -1230,30 +1257,49 @@ class CourseAdmin(admin.ModelAdmin):
                 print(row.keys())
                 # detect all client indexes dynamically
                 iq = extract_transform_iq(row)
+
+                # Define all possible fields and their mappings from the row
+                field_mapping = {
+                    "module_name": module_title,
+                    "test": test,
+                    "chapter_type": chapter_type,
+                    "author": row.get("author"),
+                    "tag": row.get("industry"),
+                    "description": row.get("description"),
+                    "business_outcome": row.get("business_outcome"),
+                    "implementation_complexity": row.get("implementation_complexity"),
+                    "unexpected_outcome": row.get("unexpected_outcome"),
+                    "function": row.get("function"),
+                    "video_url": row.get("video_link"),
+                    "audio_link": row.get("audio_link"),
+                    "image_link": row.get("image_link"),
+                    "embed_link": row.get("report_link"),
+                    "list_name": row.get("category"),
+                    "emerging_player": row.get("latest/recent") or row.get("emerging_player"),
+                    "startup": row.get("startup"),
+                    "key_words": row.get("keywords"),
+                    "transform_iq": iq,
+                    "sticker": row.get("sticker"),
+                    "card_button_config": row.get("card_button_config"),
+                }
+
+                # 1. Filter out fields that are None or empty strings to ensure we only update "available" data
+                # 2. Special handling for booleans (like emerging_player and startup)
+                defaults = {}
+                for field, value in field_mapping.items():
+                    if value is not None and str(value).strip() != "":
+                        # Process specific fields that need formatting
+                        if field in ["emerging_player", "startup"]:
+                            defaults[field] = str(value).strip().upper() == "TRUE"
+                        elif field in ["key_words", "sticker"]:
+                            defaults[field] = str(value).strip()
+                        else:
+                            defaults[field] = value
+                    
                 module, created = Module.objects.update_or_create(
                     title=module_title,
                     course=obj,  # attach to this course
-                    defaults={
-                        "module_name": module_title,
-                        "test": test,
-                        "chapter_type": chapter_type,  # can be adjusted dynamically
-                        "author": row.get("author"),
-                        "tag": row.get("industry", "General"),
-                        "description": row.get("description"),
-                        "business_outcome": row.get("business_outcome"),
-                        "implementation_complexity": row.get("implementation_complexity"),
-                        "unexpected_outcome": row.get("unexpected_outcome"),
-                        "function": row.get("function"),
-                        "video_url": row.get("video_link"),
-                        "audio_link": row.get("audio_link"),
-                        "image_link": row.get("image_link"),
-                        "embed_link": row.get("report_link"),
-                        "list_name": row.get("category"),
-                        "emerging_player": str(row.get("latest/recent") or row.get("emerging_player", "")).strip().upper() == "TRUE",
-                        "startup": str(row.get("startup", "")).strip().upper() == "TRUE",
-                        "key_words": row.get("keywords", "").strip() if row.get("keywords") else None,
-                        "transform_iq": iq or None
-                    }
+                    defaults=defaults
                 )
 
                 if created:
@@ -1263,7 +1309,7 @@ class CourseAdmin(admin.ModelAdmin):
 
             self.message_user(
                 request,
-                f"✅ {created_count} modules created and {updated_count} updated from CSV.",
+                f"✅ {created_count} modules created and {updated_count} updated from CSV. \n skiped rows: {skiped_rows}",
                 level=messages.SUCCESS,
             )
 
@@ -1325,7 +1371,7 @@ class CaseMappingsInline(admin.TabularInline):
 
 @admin.register(CaseMappings)
 class CaseMappingAdmin(admin.ModelAdmin):
-    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq", "action_name")
+    list_display = ("id", "collection", "tab_name", "embed_link", "transform_iq", "action_name", "sticker")
     search_fields = ("tab_name",)
     list_filter  = ('action_name',)
     ordering = ("-id",)
@@ -1371,11 +1417,16 @@ class CollectionAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = f"attachment; filename={filename}"
 
         writer = csv.writer(response)
-        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ"])
+        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ", "Action Name", "Sticker", "Collection Iframe Link", "Collection Iframe Title", "Collection Iframe Subtitle"])
 
         for collection in queryset:
             for item in collection.case_items.all():
-                writer.writerow([collection.collection_name, item.tab_name, item.embed_link, item.transform_iq])
+                writer.writerow([collection.collection_name, item.tab_name, 
+                                 item.embed_link,
+                                 item.transform_iq, item.action_name,
+                                 item.sticker, collection.iframe_link, 
+                                 collection.iframe_title, collection.iframe_subtitle
+                                 ])
 
         return response
 
@@ -1386,48 +1437,65 @@ class CollectionAdmin(admin.ModelAdmin):
     # -------------------------------------------------------------------
     def changelist_view(self, request, extra_context=None):
         if request.method == "POST" and "upload_csv" in request.FILES:
-            file = request.FILES["upload_csv"]
-            decoded = file.read().decode("utf-8-sig")
-            reader = csv.DictReader(io.StringIO(decoded))
+            try:
+                file = request.FILES["upload_csv"]
+                decoded = file.read().decode("utf-8-sig")
+                reader = csv.DictReader(io.StringIO(decoded))
 
-            created_collections = 0
-            created_cases = 0
-            updated_cases = 0
+                rows = []
+                errors_list = []
+                for i, row in enumerate(reader, start=1):
+                    clean = normalize_row_collections(row)
+                    error_list = validate_row(clean, i)
+                    if error_list:
+                        errors_list.append(error_list)
+                        continue
+                    rows.append(clean)
 
-            for row in reader:
-                row = {key.strip().lower().replace(' ', "_") : value for key, value in row.items()}
-                collection_name = row["collection_name"].strip()
-                tab_name = row["tab_name"].strip()
-                embed_link = row["embed_link"].strip()
-                transform_iq = row['transform_iq'].strip() if 'transform_iq' in row else None
+                # 🔥 Business validation
+                rows, errors = validate_business_rules(rows)
+                if errors:
+                    errors_list.extend(errors)
 
-                # Get or create Collection
-                collection, c_created = Collection.objects.get_or_create(
-                    collection_name=collection_name
+
+                logger.info(f"valid Rows: {rows}")
+                # ✅ Only if everything valid, touch DB
+                with transaction.atomic():
+                    collections_map, created_collections = upsert_collections(rows)
+                    created_cases, updated_cases = upsert_cases(rows, collections_map)
+
+                self.message_user(
+                    request,
+                    f"✔ Imported — {created_collections} collections, "
+                    f"{created_cases} new cases, {updated_cases} updated.",
+                    level=messages.SUCCESS
                 )
-                if c_created:
-                    created_collections += 1
 
-                # Get or update CaseMappings
-                case, created = CaseMappings.objects.update_or_create(
-                    collection=collection,
-                    tab_name=tab_name,
-                    defaults={"embed_link": embed_link, "transform_iq": transform_iq}
+                if errors_list:
+                    err_str = ("| \n").join(errors_list)
+                    self.message_user(  
+                        request,
+                        f"Errors: {err_str}",
+                        level=messages.SUCCESS
+                    )
+
+            except CSVValidationError as e:
+                # ✅ Proper admin error, no crash
+                self.message_user(
+                    request,
+                    f"CSV Validation Error:\n{str(e)}",
+                    level=messages.ERROR
                 )
 
-                if created:
-                    created_cases += 1
-                else:
-                    updated_cases += 1
+            except Exception as e:
+                # ✅ Catch unexpected bugs safely
+                self.message_user(
+                    request,
+                    f"Unexpected Error: {str(e)}",
+                    level=messages.ERROR
+                )
 
-            self.message_user(
-                request,
-                f"✔ Imported successfully — {created_collections} collections, "
-                f"{created_cases} new items, {updated_cases} updated.",
-                level=messages.SUCCESS
-            )
+            # ✅ CRITICAL LINE
+            return redirect(request.get_full_path())
 
         return super().changelist_view(request, extra_context)
-
-
-
