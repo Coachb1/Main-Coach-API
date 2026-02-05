@@ -6,7 +6,7 @@ from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
-from django.db.models import Max
+from django.db.models import Max, F
 
 from apis.tests.filtersets import TestFilterSet
 from apis.tests.serializers import CoursePackageSerializer, CourseSerializer, CreateTestSerializer, ModuleForLaterSerializer, ModuleLikeSerializer, ModuleProgressSerializer, ModuleSerializer, TestMappingSerializer, UpdateTestSerializer, UserProgressSerializer, UserReportSerializer, UserTestMappingSerializer
@@ -20,7 +20,7 @@ from pdf_generator.helpers import get_flash_cards_from_test
 from test_bulk_upload.test_export_helpers import CSVExportService, CSVRequestParams, TestFilterService, get_test_export_list
 from tests.helpers import (create_test, merge_user_progress, update_test, get_test_report, generate_test_from_objective_anthropic , admin_panel_updates,
                             update_prompt_user_attributes, scrape_article_data, update_scenarios, pilot_test_creation_job)
-from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping
+from tests.models import Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestionResponse, TestAttemptSession, TestQuestion, UserProgress, UserTestConfigs, TestRecommendation, UserTestMapping, ModuleClientLike
 from users.permissions import IsAuthenticatedUser
 from learner_path.helpers import get_learner_path
 from email_sender.helpers import send_learner_path_email
@@ -2228,8 +2228,22 @@ class CourseViewSet(ApiViewSet,
             progress = UserProgress.objects.filter(user=user, course__in=courses)
 
             progress_serializer = UserProgressSerializer(progress, many=True).data
-            data['package_data'] = merge_user_progress(serializer, progress_serializer)
 
+            # Get client module likes
+            client = user.get_client()
+            client_module_likes = {}
+
+            if client:
+                client_likes = (
+                    ModuleClientLike.objects
+                    .filter(module__course__in=courses, client=client)
+                    .values_list("module__uid", "total_likes")
+                )
+
+                client_module_likes = dict(client_likes)
+
+
+            data['package_data'] = merge_user_progress(serializer, progress_serializer, client_module_likes)
 
         return Response(data['package_data'], status=status.HTTP_200_OK)
 
@@ -2272,13 +2286,19 @@ class CourseViewSet(ApiViewSet,
         """
         if request.method == "GET":
             client_only_likes = request.query_params.get("client_only_likes", False) # here we will increase decrease total_like  not user specific like
+            client_id = request.query_params.get('client_id')
             if client_only_likes:
                 # If client_only_likes is True, we return total likes for the module
                 module = get_object_or_404(Module, uid=module_id)
-                progress = ModuleProgress.objects.filter(module=module).first()
-                if not progress:
-                    return Response({"total_likes": 0}, status=status.HTTP_200_OK)
-                return Response({"total_likes": progress.total_likes}, status=status.HTTP_200_OK)
+                if client_id:
+                    # Filter likes for a specific client
+                    client = get_object_or_404(ClientUserInfo, uid=client_id)
+                    qs = ModuleClientLike.objects.filter(module=module, client=client)
+                    return Response({"total_likes": qs.total_likes}, status=status.HTTP_200_OK)
+
+                else:
+                    # Return system-wide likes if no client_id specified
+                    return Response({"total_likes": module.total_likes}, status=status.HTTP_200_OK)
             user, module = self._get_user_and_module(request, module_id, from_query=True)
             like = ModuleLike.objects.filter(module=module, user=user).first()
             if not like:
@@ -2287,9 +2307,23 @@ class CourseViewSet(ApiViewSet,
 
         elif request.method == "POST":
             client_only_likes = request.data.get("client_only_likes", False) # True for module-wide likes, False for user-specific likes
-            likes = request.data.get("likes", 1) # 1 for like, -1 for unlike            
+            likes = request.data.get("likes", 1) # 1 for like, -1 for unlike
             if client_only_likes:
-                module = get_object_or_404(Module, uid=module_id)
+                user, module = self._get_user_and_module(request, module_id)
+                client = user.get_client()
+                if client:
+                    obj, _ = ModuleClientLike.objects.get_or_create(
+                        module=module,
+                        client=client,
+                        defaults={"total_likes": 0},
+                    )
+
+                    # atomic update
+                    ModuleClientLike.objects.filter(id=obj.id).update(
+                        total_likes=F("total_likes") + likes
+                    )
+
+
                 module.total_likes = max(0, module.total_likes + likes)
                 module.save(update_fields=['total_likes'])
                 return Response({"message": "Total likes updated"}, status=status.HTTP_200_OK)

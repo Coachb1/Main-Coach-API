@@ -44,6 +44,7 @@ class CompanyIQ(MyModel):
         default=dict,
         help_text="AI maturity scores and insights"
     )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
 
 
     class Meta:

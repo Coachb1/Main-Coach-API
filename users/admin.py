@@ -94,7 +94,7 @@ class LibraryBotConfigInline(admin.StackedInline):
             "fields": ("ideaboard_report_protected", "ideaboard_report_password")
         }),
         ("Login Settings", {
-            "fields": ("login_view", "login_dashboard")
+            "fields": ("login_view", "login_dashboard", "access_password")
         }),
     )
 

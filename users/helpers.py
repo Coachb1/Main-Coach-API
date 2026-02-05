@@ -2,11 +2,12 @@ import logging
 
 from django.contrib.auth.hashers import make_password, check_password
 
+from apis.accounts.dtos import UserCreateContextDto, IdentityCreateContextDto
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
 from users.models import User, ClientUserInfo, CoachCoacheeMentorMenteeProfile, SignatureBot, AccessCodeLog
 from users.models import UserAttribute
-from users.choices import BotTypeChoice
+from users.choices import BotTypeChoice, UserRoleChoice
 from web_auth.helpers import create_new_tokens, logout_entity
 import random
 
@@ -31,11 +32,62 @@ def create_user(tenant: Tenant,
 
     return user
 
+def create_user_acc(tenant: Tenant,
+               identity_type: str,
+               identity_value: str,
+):
+    from apis.accounts.aggregator import create_user_account
+    user_context = UserCreateContextDto(
+        name=identity_value.split("@")[0],
+        role=UserRoleChoice.member,
+        password="demo@2026",
+        user_attributes={
+            "tag": "profile",
+            "attributes": {"email": identity_value}
+        }
+    )
+    identity_context = IdentityCreateContextDto(
+        identity_type=identity_type,
+        value=identity_value
+    )
+    user = create_user_account(tenant, user_context, identity_context)
+
+    return user
+
+
+def validate_client_access_password(tenant: Tenant,
+               password: str,
+               client_id: str,
+               user:User
+               ) -> dict:
+
+    client = user.get_client()
+
+    if not client and client_id:
+        try:
+            client = ClientUserInfo.objects.get(uid=client_id, tenant_id=tenant.uid, deleted=False)
+        except ClientUserInfo.DoesNotExist:
+            pass
+        
+    
+    if not client:
+        raise ValueError("Invalid credentials")
+    
+
+
+    try:
+        if client.library_bot_config.access_password != password:
+            raise ValueError("Invalid credentials")
+    except Exception:
+        raise ValueError("Invalid credentials")
+
+
 
 def login_user(tenant: Tenant,
                identity_type: str,
                identity_value: str,
-               password: str) -> dict:
+               password: str,
+               client_id:str = None) -> dict:
     """
     This code defines a function named `login_user` that takes in a `tenant`, `identity_type`, `identity_value`, and `password` as inputs. 
     It uses the `get_user_via_identity` function to retrieve a user based on the provided identity information. 
@@ -54,20 +106,51 @@ def login_user(tenant: Tenant,
     except Exception as e:
         logger.exception("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user get failed err: %s", e)
         raise ValueError("invalid credentials")
+    
+    new_user = False
+    auth_type = "user_login"
+    if not user:
+        user = create_user_acc(
+            tenant=tenant,
+            identity_value=identity_value,
+            identity_type=identity_type
+        )
+        user = get_user_via_identity(
+            tenant=tenant,
+            identity_type=identity_type,
+            identity_value=identity_value
+        )
+        new_user = True
 
-    if not user.can_login:
-        logger.exception("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user cannot login")
-        raise ValueError("invalid credentials")
+    is_default_password = check_password("demo@2026", user.password)
+    if new_user or is_default_password:
+        validate_client_access_password(
+            tenant=tenant,
+            password=password,
+            client_id=client_id,
+            user=user
+        )
+        auth_type = 'client_login'
 
-    if not check_password(password, user.password):
-        logger.exception(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! invalid password : {password}")
-        raise ValueError("invalid credentials")
+    else:
+        if not user.can_login:
+            logger.exception("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! user cannot login")
+            raise ValueError("invalid credentials")
 
-    return create_new_tokens(
+        if not check_password(password, user.password):
+            logger.exception(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! invalid password : {password}")
+            raise ValueError("invalid credentials")
+
+
+    tokens = create_new_tokens(
         entity_type="user",
         entity_identifier_key="uid",
         entity_identifier_value=user.uid
     )
+
+    if auth_type == 'client_login':
+        tokens["auth_type"] = auth_type
+    return tokens
 
 
 def logout_user(user: User):
@@ -175,6 +258,10 @@ def update_user_account(tenant_id: str, user_id: str, user_data: dict ={}):
     if user_data.get('role'):
         user.role = user_data.get('role')
         updated_fields.append('role')
+
+    if user_data.get('password'):
+        user.password = make_password(user_data.get('password'))
+        updated_fields.append('password')
 
     if len(updated_fields) > 0:
         user.save(update_fields=updated_fields)

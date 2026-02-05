@@ -24,6 +24,7 @@ class CompanyIQSerializer(serializers.ModelSerializer):
             "approved",
             "created",
             "updated",
+            "sticker"
         ]
         read_only_fields = ["uid", "company_normalized", "created", "updated"]
 
@@ -55,6 +56,7 @@ class ApprovedCompanyIQSerializer(serializers.ModelSerializer):
             "transformation_iq_outlook",
             "source",
             "created",
+            "sticker"
         ]
         read_only_fields = fields
 
