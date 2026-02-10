@@ -1225,7 +1225,8 @@ class CourseAdmin(admin.ModelAdmin):
                         cleaned[key] = None
                         continue
 
-                    value = sanitize_text(value)
+                    if not (key.startswith("transform_iq") or key.startswith("iq")):
+                        value = sanitize_text(value)
 
                     # Parse JSON fields
                     if key in JSON_FIELDS:
