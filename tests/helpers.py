@@ -14864,11 +14864,10 @@ def extract_transform_iq(row):
     
     general_overview = row.get("transform_iq_overview")
 
-    if general_overview:
-        iq["General"] = {
-            "overview": general_overview,
-            "roles": extract_roles(row, "iq-"),
-        }
+    iq["General"] = {
+        "overview": general_overview,
+        "roles": extract_roles(row, "iq-"),
+    }
 
     return iq or None
 

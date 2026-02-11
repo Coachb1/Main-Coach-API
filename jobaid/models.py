@@ -13,9 +13,9 @@ class JobAid(MyModel):
     ]
     title = models.CharField(max_length=255, verbose_name="Title")
     description = models.TextField(verbose_name="Description")
-    report_header = models.TextField(verbose_name="Report Header")
-    report_footer = models.TextField(verbose_name="Report Footer")
-    validation_prompt = models.TextField(verbose_name="Validation Prompt", null=True, blank=True, default=get_prompt("validation"))
+    report_header = models.TextField(verbose_name="Report Header", null=True, blank=True, default=None)
+    report_footer = models.TextField(verbose_name="Report Footer", null=True, blank=True, default=None)
+    validation_prompt = models.TextField(verbose_name="Validation Prompt", null=True, blank=True, default=get_prompt("validation"), help_text='Deprecated')
     report_generation_prompt = models.TextField(verbose_name="Report Generation Prompt", null=True, blank=True, default=get_prompt("report_generation"))
     prompt_generation_prompt = models.TextField(verbose_name="Prompt Generation", null=True, blank=True, default=get_prompt("prompt_generation"))
     job_aid_type = models.CharField(max_length=50, verbose_name="Job Aid Type", blank=True, null=True, default='job_aid', choices=JOB_TYPE_CHOICES)
