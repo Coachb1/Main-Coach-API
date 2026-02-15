@@ -19,7 +19,7 @@ from django.urls import path
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib import admin, messages
-from .forms import TenantForm, ClientForm, UserAdminForm, UserForm
+from .forms import LibraryBotConfigForm, TenantForm, ClientForm, UserAdminForm, UserForm
 from django.db.models import Q
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
@@ -77,8 +77,9 @@ class CoachRecommendationsAdmin(TenantAwareModelAdmin):
     
 class LibraryBotConfigInline(admin.StackedInline):
     model = LibraryBotConfig
-    extra = 0
-    can_delete = True
+    form = LibraryBotConfigForm
+    extra = 1
+    can_delete = False
     show_change_link = True
     fieldsets = (
         ("Configuration", {

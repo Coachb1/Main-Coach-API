@@ -1,0 +1,431 @@
+<!-- templates/admin/collections/collection_change_form.html -->
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* ===== LIGHT MODE (Default) ===== */
+    .json-editor-container {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 10px;
+        border: 1px solid #ddd;
+    }
+    
+    .button-builder {
+        background: white;
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+    }
+    
+    .button-preview {
+        background: #e9ecef;
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #212529;
+    }
+    
+    .add-button-btn {
+        background: #417690;
+        color: white;
+        padding: 8px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    
+    .add-button-btn:hover {
+        background: #345a6f;
+    }
+    
+    .button-item {
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        position: relative;
+    }
+    
+    .button-item label {
+        color: #333;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .button-item small {
+        color: #666;
+    }
+    
+    .remove-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    
+    .remove-button:hover {
+        background: #c82333;
+    }
+    
+    .json-editor-container h3 {
+        color: #333;
+        margin-top: 0;
+    }
+    
+    .json-sync-controls {
+        margin-bottom: 10px;
+        padding: 10px;
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 4px;
+        color: #856404;
+    }
+    
+    .sync-btn {
+        background: #28a745;
+        color: white;
+        padding: 5px 12px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        margin-right: 5px;
+    }
+    
+    .sync-btn:hover {
+        background: #218838;
+    }
+
+    /* ===== DARK MODE ===== */
+    @media (prefers-color-scheme: dark) {
+        .json-editor-container {
+            background: #2b2b2b;
+            border-color: #444;
+        }
+        
+        .button-item {
+            background: #1e1e1e;
+            border-color: #444;
+        }
+        
+        .button-item label {
+            color: #e0e0e0;
+        }
+        
+        .button-item small {
+            color: #aaa;
+        }
+        
+        .button-item input[type="text"],
+        .button-item input[type="url"],
+        .button-item select {
+            background: #2b2b2b;
+            color: #e0e0e0;
+            border-color: #555;
+        }
+        
+        .button-preview {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+        
+        .json-editor-container h3 {
+            color: #e0e0e0;
+        }
+        
+        .json-sync-controls {
+            background: #3d3d00;
+            border-color: #666600;
+            color: #ffeb3b;
+        }
+        
+        details summary {
+            color: #e0e0e0;
+        }
+    }
+    
+    /* Force dark mode when Django admin uses dark theme */
+    [data-theme="dark"] .json-editor-container,
+    body.theme-dark .json-editor-container {
+        background: #2b2b2b;
+        border-color: #444;
+    }
+    
+    [data-theme="dark"] .button-item,
+    body.theme-dark .button-item {
+        background: #1e1e1e;
+        border-color: #444;
+    }
+    
+    [data-theme="dark"] .button-item label,
+    body.theme-dark .button-item label {
+        color: #e0e0e0;
+    }
+    
+    [data-theme="dark"] .button-item small,
+    body.theme-dark .button-item small {
+        color: #aaa;
+    }
+    
+    [data-theme="dark"] .button-item input[type="text"],
+    [data-theme="dark"] .button-item input[type="url"],
+    [data-theme="dark"] .button-item select,
+    body.theme-dark .button-item input[type="text"],
+    body.theme-dark .button-item input[type="url"],
+    body.theme-dark .button-item select {
+        background: #2b2b2b;
+        color: #e0e0e0;
+        border-color: #555;
+    }
+    
+    [data-theme="dark"] .button-preview,
+    body.theme-dark .button-preview {
+        background: #1e1e1e;
+        color: #e0e0e0;
+        border: 1px solid #444;
+    }
+    
+    [data-theme="dark"] .json-editor-container h3,
+    body.theme-dark .json-editor-container h3 {
+        color: #e0e0e0;
+    }
+    
+    [data-theme="dark"] .json-sync-controls,
+    body.theme-dark .json-sync-controls {
+        background: #3d3d00;
+        border-color: #666600;
+        color: #ffeb3b;
+    }
+    
+    [data-theme="dark"] details summary,
+    body.theme-dark details summary {
+        color: #e0e0e0;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buttonsJsonField = document.querySelector('[name="action_buttons_json"]');
+    
+    if (buttonsJsonField) {
+        createButtonBuilder(buttonsJsonField);
+    }
+    
+    function createButtonBuilder(textarea) {
+        const container = document.createElement('div');
+        container.className = 'json-editor-container';
+        container.innerHTML = `
+            <h3>Button Builder</h3>
+            <div class="json-sync-controls">
+                <strong>⚠️ Sync Mode:</strong>
+                <button type="button" class="sync-btn" id="sync-from-json">Load from JSON ↓</button>
+                <button type="button" class="sync-btn" id="sync-to-json">Update JSON ↑</button>
+                <span id="sync-status"></span>
+            </div>
+            <div id="buttons-list"></div>
+            <button type="button" class="add-button-btn" id="add-button">+ Add Button</button>
+        `;
+        
+        textarea.parentNode.insertBefore(container, textarea);
+        
+        let isUpdating = false; // Prevent infinite loops
+        
+        // Load existing buttons on page load
+        loadButtonsFromJSON();
+        
+        // Watch for manual JSON changes
+        textarea.addEventListener('input', function() {
+            if (!isUpdating) {
+                showSyncWarning();
+            }
+        });
+        
+        // Load from JSON button
+        document.getElementById('sync-from-json').addEventListener('click', loadButtonsFromJSON);
+        
+        // Update JSON button
+        document.getElementById('sync-to-json').addEventListener('click', updateJSON);
+        
+        // Add button
+        document.getElementById('add-button').addEventListener('click', () => {
+            addButtonToUI({});
+        });
+        
+        function showSyncWarning() {
+            const status = document.getElementById('sync-status');
+            status.innerHTML = '<span style="color: #ff9800;">⚠ JSON modified - click "Load from JSON" to sync</span>';
+        }
+        
+        function loadButtonsFromJSON() {
+            const buttonsList = document.getElementById('buttons-list');
+            buttonsList.innerHTML = ''; // Clear existing
+            
+            try {
+                const buttons = JSON.parse(textarea.value || '[]');
+                buttons.forEach(btn => addButtonToUI(btn));
+                
+                const status = document.getElementById('sync-status');
+                status.innerHTML = '<span style="color: #28a745;">✓ Loaded ' + buttons.length + ' buttons</span>';
+                
+                setTimeout(() => {
+                    status.innerHTML = '';
+                }, 3000);
+            } catch (e) {
+                alert('Error parsing JSON: ' + e.message);
+                console.error('Error parsing buttons:', e);
+            }
+        }
+        
+        function addButtonToUI(buttonData) {
+            const buttonsList = document.getElementById('buttons-list');
+            const buttonDiv = document.createElement('div');
+            buttonDiv.className = 'button-item';
+            
+            const buttonId = 'btn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            buttonDiv.innerHTML = `
+                <button type="button" class="remove-button">Remove</button>
+                <div style="margin-bottom: 10px;">
+                    <label><strong>Label:</strong></label>
+                    <input type="text" class="vTextField" style="width: 100%;" 
+                           value="${escapeHtml(buttonData.label || '')}" data-field="label">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label><strong>Action:</strong> <small>(must match CaseMapping.action_name with CONCEPTS_ prefix)</small></label>
+                    <input type="text" class="vTextField" style="width: 100%;" 
+                           value="${escapeHtml(buttonData.action || '')}" data-field="action">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label><strong>Heading:</strong> <small>(optional)</small></label>
+                    <input type="text" class="vTextField" style="width: 100%;" 
+                           value="${escapeHtml(buttonData.heading || '')}" data-field="heading">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label><strong>Type:</strong></label>
+                    <select class="vTextField" data-field="type">
+                        <option value="normal" ${buttonData.type === 'normal' || !buttonData.type ? 'selected' : ''}>Normal</option>
+                        <option value="jobaid" ${buttonData.type === 'jobaid' ? 'selected' : ''}>Job Aid</option>
+                    </select>                                                                           
+                </div>
+                <details>
+                    <summary><strong>Iframe Table Panel (optional)</strong></summary>
+                    <div style="margin-left: 20px; margin-top: 10px;">
+                        <label>
+                            <input type="checkbox" data-field="iframe_enable" 
+                                   ${buttonData.iframe_table_panel && buttonData.iframe_table_panel[0]?.enable ? 'checked' : ''}>
+                            Enable iframe panel
+                        </label>
+                        <div style="margin-top: 10px;">
+                            <label>Iframe Link:</label>
+                            <input type="url" class="vTextField" style="width: 100%;" 
+                                   value="${escapeHtml(buttonData.iframe_table_panel && buttonData.iframe_table_panel[0]?.iframe_link || '')}" 
+                                   data-field="iframe_link">
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <label>Iframe Title:</label>
+                            <input type="text" class="vTextField" style="width: 100%;" 
+                                   value="${escapeHtml(buttonData.iframe_table_panel && buttonData.iframe_table_panel[0]?.iframe_title || '')}" 
+                                   data-field="iframe_title">
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <label>Iframe Subtitle:</label>
+                            <input type="text" class="vTextField" style="width: 100%;" 
+                                   value="${escapeHtml(buttonData.iframe_table_panel && buttonData.iframe_table_panel[0]?.iframe_subtitle || '')}" 
+                                   data-field="iframe_subtitle">
+                        </div>
+                    </div>
+                </details>
+            `;
+            
+            buttonsList.appendChild(buttonDiv);
+            
+            // Remove button handler
+            buttonDiv.querySelector('.remove-button').addEventListener('click', () => {
+                buttonDiv.remove();
+                updateJSON();
+            });
+            
+            // Auto-update JSON on any input change
+            buttonDiv.querySelectorAll('input, select').forEach(input => {
+                input.addEventListener('input', updateJSON);
+                input.addEventListener('change', updateJSON);
+            });
+        }
+        
+        function updateJSON() {
+            isUpdating = true;
+            
+            const buttons = [];
+            document.querySelectorAll('.button-item').forEach(buttonDiv => {
+                const button = {};
+                
+                buttonDiv.querySelectorAll('[data-field]').forEach(input => {
+                    const field = input.getAttribute('data-field');
+                    let value = input.type === 'checkbox' ? input.checked : input.value.trim();
+                    
+                    if (value || field === 'type') {
+                        if (field === 'iframe_enable' || field === 'iframe_link' || 
+                            field === 'iframe_title' || field === 'iframe_subtitle') {
+                            // Handle iframe panel
+                            if (!button.iframe_table_panel) {
+                                button.iframe_table_panel = [{}];
+                            }
+                            if (field === 'iframe_enable') {
+                                button.iframe_table_panel[0].enable = value;
+                            } else if (value) {
+                                button.iframe_table_panel[0][field] = value;
+                            }
+                        } else {
+                            if (value || field === 'type') {
+                                button[field] = value;
+                            }
+                        }
+                    }
+                });
+                
+                // Clean up empty iframe_table_panel
+                if (button.iframe_table_panel && 
+                    (!button.iframe_table_panel[0].enable && 
+                     !button.iframe_table_panel[0].iframe_link)) {
+                    delete button.iframe_table_panel;
+                }
+                
+                if (button.label || button.action) {
+                    buttons.push(button);
+                }
+            });
+            
+            textarea.value = JSON.stringify(buttons, null, 2);
+            
+            const status = document.getElementById('sync-status');
+            status.innerHTML = '<span style="color: #28a745;">✓ JSON updated</span>';
+            
+            setTimeout(() => {
+                status.innerHTML = '';
+                isUpdating = false;
+            }, 2000);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    }
+});
+</script>
+{% endblock %}
