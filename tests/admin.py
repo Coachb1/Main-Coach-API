@@ -1,6 +1,7 @@
 from django.utils import timezone
 from django.contrib import admin
 from import_export.admin import ExportActionMixin
+from commons.db.admin_mixins import SearchablePaginatedInlineMixin
 from commons.utils import sanitize_text
 from identities.helpers import get_user_via_identity
 from tenants.models import Tenant
@@ -28,7 +29,7 @@ from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path, reverse
 from .models import TestPilotuser, TestPilotRecords
-from .forms import BulkUpdateForm, CSVUploadForm, CourseAdminForm, PsychometricAdminForm, PsychometricReportAdminForm
+from .forms import BulkUpdateForm, CSVUploadForm, CollectionAdminForm, CourseAdminForm, CoursePackageAdminForm, ModuleForm, PsychometricAdminForm, PsychometricReportAdminForm
 from django.utils.html import format_html
 from import_export.resources import ModelResource
 from import_export.fields import Field
@@ -1332,6 +1333,7 @@ class CourseInline(admin.TabularInline):
 
 @admin.register(CoursePackage)
 class CoursePackageAdmin(TenantAwareModelAdmin):  # keep TenantAwareModelAdmin if needed
+    form = CoursePackageAdminForm
     list_display = ('id', 'uid', "title", "sub_title", "client", 'image_link')
     list_filter = ("client",)
     search_fields = ("title", "sub_title", "client__client_name")
@@ -1343,6 +1345,7 @@ class CoursePackageAdmin(TenantAwareModelAdmin):  # keep TenantAwareModelAdmin i
 
 @admin.register(Module)
 class ModuleAdmin(admin.ModelAdmin):
+    form = ModuleForm
     list_display = ("title", "module_name", "course", "author", "tag")
     list_filter = ("course", "author", "tag")
     search_fields = ("title", "module_name", "course__title", "author")
@@ -1369,6 +1372,7 @@ class CaseMappingsInline(admin.TabularInline):
     model = CaseMappings
     extra = 1
     fields = ('tab_name', "action_name", 'embed_link', "transform_iq")  # fields shown inline
+    # item_per_page = 10
 
 @admin.register(CaseMappings)
 class CaseMappingAdmin(admin.ModelAdmin):
@@ -1379,24 +1383,50 @@ class CaseMappingAdmin(admin.ModelAdmin):
 
 @admin.register(Collection)
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ("id", "collection_name", "client_name", "view_case_items_link",'action_tab_info','iframe_link','iframe_title','iframe_subtitle')
+    form = CollectionAdminForm
+    list_display = ("id", "collection_name", "client_name", "view_case_items_link", 
+                    'action_tab_info_preview', 'iframe_link', 'iframe_title', 'iframe_subtitle')
     search_fields = ("collection_name",)
     list_filter = ("collection_name",)
     ordering = ("-id",)
     inlines = [CaseMappingsInline]
-    # 🔹 File upload field
     change_list_template = "admin/collections/collections_change_list.html"
+    change_form_template = "admin/collections/collection_change_form.html"
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('uid','collection_name', 'heading')
+        }),
+        ('Tab Configuration', {
+            'fields': ('action_tab_info',),
+            'description': 'Configure the main tab appearance and behavior'
+        }),
+        ('Defaut Iframe Configuration', {
+            'fields': ('iframe_link', 'iframe_title', 'iframe_subtitle'),
+            'description': 'Configure the iframe panel for this collection'
+        }),
+        
+    )
+
+    def action_tab_info_preview(self, obj):
+        """Show a preview of the action_tab_info"""
+        if obj.action_tab_info:
+            button_count = len(obj.action_tab_info.get('buttons', []))
+            tab_title = obj.action_tab_info.get('title', 'N/A')
+            return format_html(
+                '<strong>{}</strong><br><small>{} buttons</small>',
+                tab_title, button_count
+            )
+        return "—"
+    action_tab_info_preview.short_description = "Tab Info"
 
     def client_name(self, obj):
-        # Case 1: M2M (client_users)
         if hasattr(obj, "client_users"):
             clients = obj.client_users.all()
             if clients:
                 return ", ".join(str(c.client_name) for c in clients)
             return "—"
-
         return "—"
-
     client_name.short_description = "Client"
 
     def view_case_items_link(self, obj):
@@ -1408,7 +1438,7 @@ class CollectionAdmin(admin.ModelAdmin):
     view_case_items_link.short_description = "Case Items"
 
     # -------------------------------------------------------------------
-    # 🔹 EXPORT CSV
+    # EXPORT CSV
     # -------------------------------------------------------------------
     actions = ["export_to_csv"]
 
@@ -1418,23 +1448,25 @@ class CollectionAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = f"attachment; filename={filename}"
 
         writer = csv.writer(response)
-        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ", "Action Name", "Sticker", "Collection Iframe Link", "Collection Iframe Title", "Collection Iframe Subtitle"])
+        writer.writerow(["Collection Name", "Tab Name", "Embed Link", "Transform IQ", 
+                        "Action Name", "Sticker", "Collection Iframe Link", 
+                        "Collection Iframe Title", "Collection Iframe Subtitle"])
 
         for collection in queryset:
             for item in collection.case_items.all():
-                writer.writerow([collection.collection_name, item.tab_name, 
-                                 item.embed_link,
-                                 item.transform_iq, item.action_name,
-                                 item.sticker, collection.iframe_link, 
-                                 collection.iframe_title, collection.iframe_subtitle
-                                 ])
+                writer.writerow([
+                    collection.collection_name, item.tab_name, 
+                    item.embed_link, item.transform_iq, item.action_name,
+                    item.sticker, collection.iframe_link, 
+                    collection.iframe_title, collection.iframe_subtitle
+                ])
 
         return response
 
     export_to_csv.short_description = "Export selected collections to CSV"
 
     # -------------------------------------------------------------------
-    # 🔹 IMPORT CSV (in change_list)
+    # IMPORT CSV
     # -------------------------------------------------------------------
     def changelist_view(self, request, extra_context=None):
         if request.method == "POST" and "upload_csv" in request.FILES:
@@ -1453,14 +1485,10 @@ class CollectionAdmin(admin.ModelAdmin):
                         continue
                     rows.append(clean)
 
-                # 🔥 Business validation
                 rows, errors = validate_business_rules(rows)
                 if errors:
                     errors_list.extend(errors)
 
-
-                logger.info(f"valid Rows: {rows}")
-                # ✅ Only if everything valid, touch DB
                 with transaction.atomic():
                     collections_map, created_collections = upsert_collections(rows)
                     created_cases, updated_cases = upsert_cases(rows, collections_map)
@@ -1481,7 +1509,6 @@ class CollectionAdmin(admin.ModelAdmin):
                     )
 
             except CSVValidationError as e:
-                # ✅ Proper admin error, no crash
                 self.message_user(
                     request,
                     f"CSV Validation Error:\n{str(e)}",
@@ -1489,14 +1516,12 @@ class CollectionAdmin(admin.ModelAdmin):
                 )
 
             except Exception as e:
-                # ✅ Catch unexpected bugs safely
                 self.message_user(
                     request,
                     f"Unexpected Error: {str(e)}",
                     level=messages.ERROR
                 )
 
-            # ✅ CRITICAL LINE
             return redirect(request.get_full_path())
 
         return super().changelist_view(request, extra_context)
