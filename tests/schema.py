@@ -114,7 +114,7 @@ ACTION_TAB_SCHEMA = {
         'type': {
             'type': 'select',
             'label': 'Tab Type',
-            'choices': [('normal', 'Normal'), ('system', 'System')],
+            'choices': [('normal', 'Normal'), ('system', 'System'), ('both', 'Both')],
             'default': 'normal'
         },
         # 2. The nested array of buttons
@@ -129,7 +129,7 @@ ACTION_TAB_SCHEMA = {
                     'type': {
                         'type': 'select', 
                         'label': 'Type',
-                        'choices': [('normal', 'Normal'), ('jobaid', 'Job Aid')]
+                        'choices': [('normal', 'Normal'), ('jobaid', 'Job Aid'),('iframe', 'Only Iframe')]
                     },
                     'heading': {'type': 'string', 'label': 'Button Section Header'},
                     
