@@ -299,3 +299,11 @@ class JobAidViewSet(ApiViewSet,
         except Exception as e:
             logger.exception(f'Error in job_aid_leaderboard: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    @action(methods=['PATCH'], detail=True, url_path='update-session')
+    def update_session(self, request, pk=None, uid=None):
+        session = get_object_or_404(JobAidSession, uid=uid)
+        serializer = JobAidSessionSerializer(session, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

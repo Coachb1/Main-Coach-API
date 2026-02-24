@@ -43,6 +43,7 @@ class JobAidQuestion(MyModel):
         ('text', 'Text'),
         ('dropdown', 'Dropdown'),
         ('boolean', 'Boolean'),
+        ('editable', 'Editable')
     ]
     job_aid = models.ForeignKey(JobAid, on_delete=models.CASCADE, related_name='questions', verbose_name="Job Aid")
     question = models.CharField(max_length=255, verbose_name="Question")

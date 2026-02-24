@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from identities.models import Identity
 from tenants.models import Tenant
-from .models import (BotAttribute, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+from .models import (BotAttribute, ClientResource, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
                  ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
@@ -113,6 +113,20 @@ class PortalPageConfigInline(admin.StackedInline):
         }),
     )
 
+@admin.register(ClientResource)
+class ClientResourceAdmin(admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ("name", "clients", "url", "order")
+    search_fields = ("name", "url")
+    list_editable = ("order", )
+    ordering = ("-id",)
+
+    def clients(self, obj):
+        return ", ".join(
+            client.client_name for client in obj.client_users.all()
+        )
+
+    clients.short_description = "Clients"
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
     change_list_template = "admin/clientuserinfo/change_list.html"  # custom template for button
@@ -122,7 +136,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name', "client_logo", 'is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
-    filter_horizontal = ('assigned_tests','assigned_bots', 'collections')
+    filter_horizontal = ('assigned_tests','assigned_bots', 'collections', 'resources')
     inlines = [LibraryBotConfigInline, PortalPageConfigInline]
 
     def get_urls(self):
