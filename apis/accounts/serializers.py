@@ -2,7 +2,7 @@ from rest_framework import serializers
 from apis.tests.serializers import CollectionSerializer
 from tests.models import TestReportConfig
 from users.choices import UserRoleChoice
-from users.models import LibraryBotConfig, PortalPageConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
+from users.models import ClientResource, LibraryBotConfig, PortalPageConfig, User, CoachCoacheeMentorMenteeProfile, SignatureBot,BotAttribute, CoachCoacheeConnection, CoachCoacheeRating, UserAttribute, ClientUserInfo, ReportConfig
 from commons.cloudinary import upload_image
 from utilities.models import UserIDP, DirectoryPageInfo, CoachCoacheeJoiningPreviledge, LLMMappingTable, GlobalSystemInstructions
 from commons.utils import get_bot_engagements
@@ -411,3 +411,21 @@ class TestReportConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestReportConfig
         fields = '__all__'
+
+class ClientResourceSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(
+        source="client.client_name",
+        read_only=True
+    )
+
+    class Meta:
+        model = ClientResource
+        fields = [
+            "id",
+            "client",
+            "client_name",
+            "name",
+            "url",
+            "order",
+            "is_active",
+        ]
