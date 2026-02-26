@@ -118,8 +118,13 @@ class ClientResourceAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_display = ("name", "clients", "url", "order")
     search_fields = ("name", "url")
-    list_editable = ("order", )
+    list_editable = ("order", "url")
     ordering = ("-id",)
+    fieldsets  = (
+        "Client Resource Details", {
+            "fields": ("name", "url")
+        }
+    )
 
     def clients(self, obj):
         return ", ".join(
@@ -136,7 +141,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
     search_fields = ('client_name','domain_name','uid')
     list_editable = ('domain_name', "client_logo", 'is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
     ordering = ('-id',)
-    filter_horizontal = ('assigned_tests','assigned_bots', 'collections', 'resources')
+    filter_horizontal = ('assigned_tests','assigned_bots', 'collections')
     inlines = [LibraryBotConfigInline, PortalPageConfigInline]
 
     def get_urls(self):

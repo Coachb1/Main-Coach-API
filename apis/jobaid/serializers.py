@@ -63,19 +63,27 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
         resource_qna = []
 
         # ---------- CLIENT ----------
-        client = None
-        if instance.client_id:
-            client = ClientUserInfo.objects.filter(
-                deleted=False,
-                uid=instance.client_id
-            ).first()
+        # client = None
+        # if instance.client_id:
+        #     client = ClientUserInfo.objects.filter(
+        #         deleted=False,
+        #         uid=instance.client_id
+        #     ).first()
 
-        client_resources = list(
-            client.resources
+        # client_resources = list(
+        #     client.resources
+        #         .filter(is_active=True)
+        #         .order_by("order")
+        #         .values("name", "url")
+        # ) if client else []
+
+        session_resources =  list(
+            instance.resources
                 .filter(is_active=True)
                 .order_by("order")
                 .values("name", "url")
-        ) if client else []
+        )
+       
 
         # ---------- JOB QUESTIONS ----------
         for q in jobaid.questions.all().order_by("id"):
@@ -102,14 +110,18 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
 
         # ---------- LEFTOVER SESSION QNA ----------
         for q_text, ans_text in session_qna.items():
-            normal_qna.append({
+            que_data = {
                 "question": q_text,
                 "answer": ans_text,
                 "question_type": "other",
-            })
+            }
+            if q_text == "Innovation Score":
+                innovation_score_qna.append(que_data)
+            else:
+                normal_qna.append(que_data)
 
         # ---------- RESOURCES ----------
-        for resource in client_resources:
+        for resource in session_resources:
             resource_qna.append({
                 "question": resource["name"],
                 "answer": resource["url"],
