@@ -81,7 +81,7 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
             instance.resources
                 .filter(is_active=True)
                 .order_by("order")
-                .values("name", "url")
+                .values("label", "url")
         )
        
 
@@ -123,7 +123,7 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
         # ---------- RESOURCES ----------
         for resource in session_resources:
             resource_qna.append({
-                "question": resource["name"],
+                "question": resource["label"],
                 "answer": resource["url"],
                 "question_type": "resource",
             })
