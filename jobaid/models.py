@@ -89,7 +89,12 @@ class JobAidSession(MyModel):
     like_count = models.IntegerField(default=0)
     liked_by = models.TextField(blank=True, null=True, help_text="Comma-separated list of user emails who liked the session")
     client_id = models.CharField(max_length=255, blank=True, null=True, verbose_name="Client ID", help_text="Identifier for the client associated with this session")
-
+    resources = models.ManyToManyField(
+            'users.ClientResource',
+            blank=True,
+            related_name="jobaid_sessions"
+        )
+    
     class Meta:
         verbose_name = "Job Aid Session"
         verbose_name_plural = "Job Aid Sessions"
