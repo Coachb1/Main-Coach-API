@@ -736,7 +736,7 @@ class UserMindmap(TenantAwareModel):
         return f"{self.user.name} - Mindmap"
     
 
-class ClientResource(MyModel):
+class ClientResource(MyModel): # NOTE: this table is being used for both client resources and jobaid session. treat it a resource table
     name = models.CharField(max_length=125)
     url = models.URLField()
 
@@ -745,3 +745,7 @@ class ClientResource(MyModel):
 
     def __str__(self):
         return f"{self.name}"
+    
+    class Meta:
+        verbose_name = "Resource"
+        verbose_name_plural = "Resources"

@@ -39,3 +39,4 @@ class JobAidSessionAdmin(admin.ModelAdmin):
     list_filter = ("status", "job_aid", "created_at")
     search_fields = ("email", "full_name")
     readonly_fields = ("created_at", "generated_report_data")
+    filter_horizontal = ('resources',)
