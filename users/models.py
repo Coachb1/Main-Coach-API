@@ -738,6 +738,7 @@ class UserMindmap(TenantAwareModel):
 
 class ClientResource(MyModel): # NOTE: this table is being used for both client resources and jobaid session. treat it a resource table
     name = models.CharField(max_length=125)
+    label = models.CharField(max_length=125)
     url = models.URLField()
 
     order = models.PositiveIntegerField(default=0)
