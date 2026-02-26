@@ -118,7 +118,7 @@ class ClientResourceAdmin(admin.ModelAdmin):
     list_per_page = 10
     list_display = ("name", "label", "clients", "url")
     search_fields = ("name", "url", "label")
-    list_editable = ("order", "url", "label")
+    list_editable = ("url", "label")
     ordering = ("-id",)
     fieldsets  = (
         ("Resource Basic", {
