@@ -121,9 +121,9 @@ class ClientResourceAdmin(admin.ModelAdmin):
     list_editable = ("order", "url")
     ordering = ("-id",)
     fieldsets  = (
-        "Client Resource Details", {
+        ("Resource Details", {
             "fields": ("name", "url")
-        }
+        }),
     )
 
     def clients(self, obj):
