@@ -6,6 +6,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from analytics.models import Event
 from analytics.services import dashboard_stats, export_events_csv, feature_detail_stats
 from users.models import ClientUserInfo, User
+from tenants.admin import TenantAwareModelAdmin
 
 
 @staff_member_required
@@ -26,6 +27,12 @@ def analytics_dashboard_view(request):
     if client_id:
         client = ClientUserInfo.objects.filter(uid=client_id).first()
 
+    # ---- feature filter ----
+    feature = request.GET.get("feature")
+    
+    # ---- feature_path filter ----
+    feature_path = request.GET.get("feature_path")
+
     # ---- user (optional / future) ----
     user_id = request.GET.get("user_id")
     user = User.objects.filter(uid=user_id).first() if user_id else None
@@ -34,11 +41,19 @@ def analytics_dashboard_view(request):
     data = dashboard_stats(
         days=days,
         client=client,
-        user=user
+        user=user,
+        feature=feature,
+        feature_path=feature_path
     )
 
     # ---- available clients (SUPER ADMIN) ----
     clients = ClientUserInfo.objects.all().order_by("client_name")
+    
+    # ---- get distinct features for filter ----
+    distinct_features = Event.objects.values_list("feature", flat=True).distinct()
+    
+    # ---- get distinct feature_paths for filter ----
+    distinct_feature_paths = Event.objects.exclude(feature_path="").values_list("feature_path", flat=True).distinct()
 
     return render(
         request,
@@ -48,6 +63,10 @@ def analytics_dashboard_view(request):
             "selected_days": days,
             "clients": clients,
             "selected_client": client,
+            "selected_feature": feature,
+            "selected_feature_path": feature_path,
+            "distinct_features": distinct_features,
+            "distinct_feature_paths": distinct_feature_paths,
         }
     )
 
@@ -90,8 +109,9 @@ def analytics_export_csv(request):
 
     client_id = request.GET.get("client_id")
     client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None 
-    feature = request.GET.get("feature")   
-    return export_events_csv(days=days, client=client, feature=feature)
+    feature = request.GET.get("feature")
+    feature_path = request.GET.get("feature_path")
+    return export_events_csv(days=days, client=client, feature=feature, feature_path=feature_path)
 
 
 # 🔑 Inject URL into EXISTING admin
@@ -126,7 +146,8 @@ inject_analytics_admin_urls()
 
 
 @admin.register(Event)
-class EventAdmin(admin.ModelAdmin):
-    list_display = ("id", "event_type", "feature", "user", "client","created")
+class EventAdmin(TenantAwareModelAdmin):
+    list_display = ("id", "event_type", "feature", "feature_path", "user", "client","created")
     list_filter = ("event_type", "feature", "created", 'client')
-    search_fields = ("feature", "metadata", "user__email", "user__uid", 'client__client_name')
+    search_fields = ("feature", "feature_path", "metadata", "user__email", "user__uid", 'client__client_name')
+    list_per_page = 10
