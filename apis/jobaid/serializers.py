@@ -7,7 +7,7 @@ from users.models import ClientUserInfo
 class JobAidQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobAidQuestion
-        fields = ["id", 'uid',"question", "question_type", "description", "dropdowns", "section", "is_multi_select", "allow_custom_text"]
+        fields = ["id", 'uid',"question", "question_type", "description", "dropdowns", "section", "is_multi_select", "allow_custom_text", "attachment_allowed"]
 
 
 class JobAidSerializer(serializers.ModelSerializer):
@@ -99,10 +99,17 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
             if answer is None:
                 answer = session_qna.pop(q.question, None)
 
+            files = []
+            if q.attachment_allowed:
+                files_qna = [url for key, url in instance.file_qna.items() if key.startswith(f"{q.question}")] if instance.file_qna else []
+                files = [{"url": file_url} for file_url in files_qna]
+                
+                
             question_data = {
                 "question": q.question,
                 "answer": answer,
                 "question_type": q.question_type,
+                "attachments" : files
             }
 
             # bucket routing

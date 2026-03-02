@@ -2,11 +2,13 @@
 import json
 from rest_framework import status, mixins
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 import logging
 
+from commons.cloudinary import upload_image
 from commons.utils import generic_completion
 from commons.viewset import ApiViewSet
 from email_sender.helpers import send_email_from_emailit, send_emailv2
@@ -83,7 +85,12 @@ class JobAidViewSet(ApiViewSet,
             logger.exception(f'Error in validate_job_aid: {e}')
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(methods=['POST'], detail=False, url_path='generate-report')
+    @action(
+        methods=['POST'],
+        detail=False,
+        url_path='generate-report',
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
     def generate_report(self, request):
         """
         POST /api/v1/job-aid/generate-report/
@@ -97,6 +104,16 @@ class JobAidViewSet(ApiViewSet,
             user_name = request.data.get('name')  # Optional
             jobaid_id = request.data.get('jobaid')
 
+            # multipart/form-data sends JSON as string → convert
+            if isinstance(qna, str):
+                try:
+                    qna = json.loads(qna)
+                except json.JSONDecodeError:
+                    return Response(
+                        {"error": "Invalid qna JSON format"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
             if not qna or not user_email or not jobaid_id:
                 return Response(
                     {'error': 'qna, useremail, and jobaid are required'},
@@ -104,6 +121,48 @@ class JobAidViewSet(ApiViewSet,
                 )
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
+
+            # ── Handle file-upload questions ─────────────────────────────────
+            # Frontend sends files as:  file_upload[<question_key>] = <File>
+            # We upload each to Cloudinary and replace the qna value with the URL.
+            file_upload_errors = {}
+
+            file_qna = {}
+
+            for question_key, file_obj in request.FILES.items():
+                if question_key.startswith("file_upload[") and question_key.endswith("]"):
+                    clean_key = question_key[len("file_upload["):-1]
+                else:
+                    clean_key = question_key
+
+                try:
+                    content_type = file_obj.content_type or ""
+                    resource_type = "image" if content_type.startswith("image/") else "auto"
+
+                    upload_result = upload_image(file_obj, resource_type=resource_type)  # pass resource_type
+                    file_url = upload_result.get("secure_url")
+
+                    # If the key already has a URL (multiple files for same question),
+                    # convert to a list so all URLs are preserved
+                    if clean_key in file_qna and file_qna[clean_key]:
+                        existing = file_qna[clean_key]
+                        if isinstance(existing, list):
+                            existing.append(file_url)
+                        else:
+                            file_qna[clean_key] = [existing, file_url]
+                    else:
+                        file_qna[clean_key] = file_url
+
+                except Exception as upload_err:
+                    logger.exception(f"Cloudinary upload failed for '{clean_key}': {upload_err}")
+                    file_upload_errors[clean_key] = str(upload_err)
+
+            if file_upload_errors:
+                return Response(
+                    {'error': 'File upload failed', 'details': file_upload_errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
 
             # Initialize empty report data
             generated_report_data = {}
@@ -151,6 +210,7 @@ class JobAidViewSet(ApiViewSet,
                 status="completed",
                 generated_report_data=generated_report_data,
                 generated_prompt=generated_prompt_output,
+                file_qna=file_qna if file_qna else None
             )
 
             # ✅ Only set report_url if a report was generated
