@@ -64,6 +64,12 @@ class JobAidQuestion(MyModel):
         help_text="Users can enter values not in predefined options"
     )
 
+    attachment_allowed = models.BooleanField(
+        default=False,
+        verbose_name="Allow file upload",
+        help_text="Users can upload a file as an answer"
+    )
+
     class Meta:
         verbose_name = "Job Aid Question"
         verbose_name_plural = "Job Aid Questions"
@@ -86,6 +92,7 @@ class JobAidSession(MyModel):
     report_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     qna = models.JSONField(blank=True, null=True, help_text="Q&A data for the session")
+    file_qna = models.JSONField(blank=True, null=True, help_text="Q&File data for the session")
     like_count = models.IntegerField(default=0)
     liked_by = models.TextField(blank=True, null=True, help_text="Comma-separated list of user emails who liked the session")
     client_id = models.CharField(max_length=255, blank=True, null=True, verbose_name="Client ID", help_text="Identifier for the client associated with this session")
