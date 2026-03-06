@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 @timeit
-def get_url(region_name, bucket, key):
+def get_url(region_name, bucket, key, public_url=False):
     """
     Generates a signed URL for accessing a file in a Google Cloud Storage bucket.
 
@@ -35,6 +35,9 @@ def get_url(region_name, bucket, key):
     client = storage.Client.from_service_account_json(r'bucketaccess.json')
     bucket = client.get_bucket(bucket)
     blob = bucket.blob(key)
+
+    if public_url:
+        return blob.public_url
 
     url = blob.generate_signed_url(
         version='v4',
