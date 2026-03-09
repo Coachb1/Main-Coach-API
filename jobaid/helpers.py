@@ -192,17 +192,60 @@ The JSON structure must look like this:
         """
     elif type == 'evaluation_prompt':
         return '''
-          Please rate the following Idea submitted on the innovation portal, prioritizing commercial potential. 
-          Please only give the response as H, M, or L. (High, medium, and low) in a Json structure.
+          You are evaluating an AI initiative to determine how strongly it aligns with meaningful enterprise AI opportunities. Based only on the provided initiative name and initiative description, assess the initiative and assign a single Alignment Score using the following five-level scale:
+
+          Alignment Score Levels
+
+          XL (Extra Large) – Very strong AI opportunity. Clear business impact, strong AI applicability, realistic implementation path, and likely strategic value for an enterprise.
+
+          L (Large) – Strong AI opportunity with meaningful business value and good applicability, though impact or feasibility may be slightly lower than XL.
+
+          M (Medium) – Moderate opportunity. AI could provide some benefit, but impact, feasibility, or clarity of use case is limited.
+
+          S (Small) – Weak AI opportunity. Limited business impact, unclear need for AI, or low feasibility.
+
+          XS (Extra Small) – Very weak or irrelevant AI opportunity. AI adds little value or the initiative is poorly defined.
+
+
+          Evaluation Criteria
+
+          Consider the following when deciding the score:
+
+          1. Business Impact – Potential to improve revenue, efficiency, cost reduction, or decision-making.
+
+
+          2. AI Applicability – Whether AI meaningfully improves the solution versus traditional software.
+
+
+          3. Clarity of Use Case – How clearly the initiative describes a problem and solution.
+
+
+          4. Feasibility – Availability of data, technical feasibility, and realistic implementation.
+
+
+          5. Strategic Relevance – Whether the initiative could be important at an enterprise level.
+
+
+
+          Instructions
+
+          Carefully interpret the initiative name and description.
+
+          Evaluate the initiative against the criteria above.
+
+          Choose the single most appropriate alignment score from: XL, L, M, S, XS.
+
+          Avoid numerical scoring and avoid inventing information not implied by the description.
+
 
           For example:
            {
            "rating" : "M"
            }
-          OUtput Must be in Json:
-          {
-            "rating": "[Please only give the response as H, M, or L. (High, medium, and low)]"
-          }
+           
+          Output Must be in Json:
+
+          { "rating": "[Please only give the response as XL | L | M | S | XS  ]"}
       '''
     elif type == 'prompt_generation':
         return """
