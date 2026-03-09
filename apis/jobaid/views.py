@@ -191,7 +191,7 @@ class JobAidViewSet(ApiViewSet,
             if jobaid.evaluate_jobaid and jobaid.evaluation_prompt:
                 eva_prompt = jobaid.evaluation_prompt
                 questions = [q for q, ans in qna.items()]
-                jobaid_questions = jobaid.questions.filter(question_type='text',deleted=False, question__in=questions)
+                jobaid_questions = jobaid.questions.filter(deleted=False, question__in=questions)
 
                 queAns = ""
                 for question in jobaid_questions:
