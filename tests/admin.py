@@ -24,7 +24,7 @@ from users.models import ClientUserInfo, UserAttribute
 from openpyxl import Workbook
 from django.http import HttpResponse
 from tests.helpers import create_and_email_to_pilot_user, create_and_send_next_test, export_modules_to_csv, extract_transform_iq, format_game_json_to_string, process_test_pilot_user_csv
-from .models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
+from .models import CaseMappings, Collection, ConceptSession, Course, CoursePackage, Module, ModuleProgress, PsychometricReportSection, PsychometricReportSubsection, TestMapping, TestRecommendation, UserProgress, UserTestMapping
 from django.db import models
 from django.shortcuts import render, redirect
 from django.urls import path, reverse
@@ -1525,3 +1525,11 @@ class CollectionAdmin(admin.ModelAdmin):
             return redirect(request.get_full_path())
 
         return super().changelist_view(request, extra_context)
+
+@admin.register(ConceptSession)
+class ConceptSessionAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "case_mapping", "status", "started_at", "ended_at")
+    list_filter = ("status", "case_mapping__collection")
+    search_fields = ("user__name", "case_mapping__tab_name", "case_mapping__collection__collection_name")
+    ordering = ("-started_at",)
+    list_per_page = 10
