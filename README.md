@@ -5,3 +5,5 @@
 
 The official Coachbot API repo
 .
+
+AI Adopts
