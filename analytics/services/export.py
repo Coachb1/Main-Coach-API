@@ -111,7 +111,7 @@ def export_concept_sessions_csv(
         "Case Mapping UID",
         "Case Mapping Name",
         "User UID",
-        "User Name"
+        "User Name",
         "User Email",
         "Status",
         "Completion %",
