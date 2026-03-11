@@ -1,267 +1,454 @@
 {% extends "analytics/admin_base.html" %}
 
+{% block page_title %}Events{% endblock %}
+{% block nav_events %}active{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Page layout ── */
+  .page { padding: 32px; max-width: 1400px; margin: 0 auto; }
+  .page > * + * { margin-top: 24px; }
+
+  /* ── Page header ── */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .page-title  { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: #0F172A; }
+  .page-sub    { font-size: 14px; color: #64748B; margin-top: 2px; }
+
+  /* ── Buttons ── */
+  .btn-dark {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 8px;
+    background: #0F172A; color: #fff;
+    font-size: 14px; font-weight: 500;
+    text-decoration: none; cursor: pointer;
+    border: none; transition: background 0.15s;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-dark:hover { background: #1E293B; }
+  .btn-dark svg   { width: 16px; height: 16px; }
+
+  /* ── Filter card ── */
+  .filter-card {
+    background: #fff; border-radius: 16px;
+    border: 1px solid #E2E8F0; padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .filter-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8;
+  }
+  .filter-select {
+    border: 1px solid #E2E8F0; border-radius: 8px;
+    padding: 8px 12px; font-size: 14px;
+    background: #fff; color: #1E293B;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    outline: none; cursor: pointer;
+    font-family: inherit;
+  }
+  .filter-select:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .filter-select-wide { min-width: 180px; }
+  .filter-select-wider { min-width: 220px; }
+  .filter-clear {
+    font-size: 13px; color: #64748B; text-decoration: underline;
+    text-underline-offset: 3px; padding: 8px 0;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; transition: color 0.1s;
+  }
+  .filter-clear:hover { color: #0F172A; }
+
+  .filter-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #F1F5F9; }
+
+  /* ── KPI grid ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 768px) { .kpi-grid { grid-template-columns: 1fr; } }
+  .kpi-card {
+    background: #fff; border-radius: 16px;
+    border: 1px solid #E2E8F0; padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; }
+  .kpi-value { font-family: "DM Mono", monospace; font-size: 36px; font-weight: 500; color: #0F172A; margin-top: 10px; }
+  .kpi-value-sm { font-size: 20px; }
+  .kpi-hint  { font-size: 12px; color: #94A3B8; margin-top: 6px; }
+
+  /* ── Charts grid ── */
+  .charts-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+  @media (max-width: 1024px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: #fff; border-radius: 16px;
+    border: 1px solid #E2E8F0; padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .chart-title  { font-size: 15px; font-weight: 600; color: #1E293B; }
+  .chart-meta   { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; }
+
+  /* ── Table card ── */
+  .table-card {
+    background: #fff; border-radius: 16px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .table-card-header {
+    padding: 16px 24px; border-bottom: 1px solid #F1F5F9;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .table-card-title { font-size: 15px; font-weight: 600; color: #1E293B; }
+  .table-card-sub   { font-size: 12px; color: #94A3B8; margin-top: 2px; }
+  .table-card-count { font-family: "DM Mono", monospace; font-size: 12px; color: #94A3B8; }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .data-table thead tr { background: #F8FAFC; }
+  .data-table th {
+    padding: 10px 24px; text-align: left;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: #94A3B8;
+  }
+  .data-table th.right { text-align: right; }
+  .data-table th.w-bar { width: 120px; }
+  .data-table td { padding: 14px 24px; }
+  .data-table td.right { text-align: right; }
+  .data-table tbody tr { border-top: 1px solid #F1F5F9; }
+  .data-table tbody tr:hover { background: #F8FAFC; }
+  .data-table .empty-row td { padding: 48px 24px; text-align: center; color: #94A3B8; }
+
+  .feat-link { color: #2563EB; text-decoration: none; font-weight: 500; }
+  .feat-link:hover { color: #1D4ED8; text-decoration: underline; text-underline-offset: 2px; }
+
+  .code-tag {
+    font-family: "DM Mono", monospace; font-size: 11px;
+    background: #F1F5F9; color: #64748B;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .num { font-family: "DM Mono", monospace; font-weight: 500; color: #334155; }
+  .dash-col { color: #CBD5E1; }
+
+  /* ── Progress bar ── */
+  .bar-track { height: 6px; background: #F1F5F9; border-radius: 9999px; overflow: hidden; }
+  .bar-fill  { height: 100%; background: #3B82F6; border-radius: 9999px; }
+</style>
+{% endblock %}
+
 {% block analytics_content %}
+<div class="page">
 
-<div class="max-w-7xl mx-auto px-6 py-8 space-y-10">
-
-  <!-- Header + Filters -->
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  <!-- ── Header ── -->
+  <div class="page-header">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">Product Analytics</h1>
-      <p class="text-slate-500 mt-1">
-  {% if selected_client %}
-    {{ selected_client.client_name }} · Last {{ selected_days }} days
-  {% else %}
-    All clients · Last {{ selected_days }} days
-  {% endif %}
-</p>
-
-    </div>
-
-    <!-- Filters (future ready) -->
-    <div class="flex items-center gap-2">
-        <a
-  href="{% url 'admin:analytics-export-csv' %}?days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}{% if selected_feature %}&feature={{ selected_feature }}{% endif %}{% if selected_feature_path %}&feature_path={{ selected_feature_path }}{% endif %}"
-  class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
-         rounded-lg bg-slate-800 text-slate-500
-         hover:bg-slate-700
-         focus:outline-none focus:ring-2 focus:ring-slate-400
-         transition"
->
-  Export CSV
-</a>
-
-
-      <form method="get" class="flex flex-wrap items-center gap-4">
-
-  <!-- Date range -->
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-slate-500">Range</label>
-    <select
-      name="days"
-      onchange="this.form.submit()"
-      class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm"
-    >
-      <option value="7"  {% if selected_days == 7 %}selected{% endif %}>7 days</option>
-      <option value="14" {% if selected_days == 14 %}selected{% endif %}>14 days</option>
-      <option value="30" {% if selected_days == 30 %}selected{% endif %}>30 days</option>
-      <option value="90" {% if selected_days == 90 %}selected{% endif %}>90 days</option>
-    </select>
-  </div>
-
-  <!-- Client selector -->
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-slate-500">Client</label>
-    <select
-      name="client_id"
-      onchange="this.form.submit()"
-      class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm min-w-[200px]"
-    >
-      <option value="">All clients</option>
-
-      {% for c in clients %}
-        <option
-          value="{{ c.uid }}"
-          {% if selected_client and selected_client.uid == c.uid %}selected{% endif %}
-        >
-          {{ c.client_name }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <!-- Feature selector -->
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-slate-500">Feature</label>
-    <select
-      name="feature"
-      onchange="this.form.submit()"
-      class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm min-w-[180px]"
-    >
-      <option value="">All features</option>
-      {% for feat in distinct_features %}
-        <option 
-          value="{{ feat }}"
-          {% if selected_feature == feat %}selected{% endif %}
-        >
-          {{ feat }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <!-- Feature Path selector -->
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-slate-500">Feature Path</label>
-    <select
-      name="feature_path"
-      onchange="this.form.submit()"
-      class="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm min-w-[200px]"
-    >
-      <option value="">All paths</option>
-      {% for path in distinct_feature_paths %}
-        <option 
-          value="{{ path }}"
-          {% if selected_feature_path == path %}selected{% endif %}
-        >
-          {{ path|truncatewords:5 }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
-
-</form>
-
-
-    </div>
-  </div>
-
-  <!-- KPI Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-    <div class="bg-white rounded-2xl p-6 shadow-sm border">
-      <p class="text-sm text-slate-500">Total Events</p>
-      <p class="text-3xl font-bold mt-3">
-        {{ data.kpis.total_events }}
+      <h1 class="page-title">Click Events</h1>
+      <p class="page-sub">
+        {% if selected_client %}{{ selected_client.client_name }}{% else %}All clients{% endif %}
+        · Last {{ selected_days }} days
+        {% if selected_event_type and selected_event_type != "click" %} · {{ selected_event_type|title }} events{% endif %}
       </p>
-      <p class="text-xs text-slate-400 mt-2">All tracked interactions</p>
+    </div>
+    <button id="exportBtn" class="btn-dark">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+      </svg>
+      Export CSV
+    </button>
+  </div>
+
+  <!-- ── Filters ── -->
+  <div class="filter-card">
+    <form method="get" id="filterForm">
+      <div class="filter-row">
+
+        <div class="filter-group">
+          <label class="filter-label">Date Range</label>
+          <select name="days" class="filter-select" onchange="this.form.submit()">
+            <option value="7"  {% if selected_days == 7  %}selected{% endif %}>Last 7 days</option>
+            <option value="14" {% if selected_days == 14 %}selected{% endif %}>Last 14 days</option>
+            <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+            <option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 days</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Event Type</label>
+          <select name="event_type" class="filter-select" onchange="this.form.submit()">
+            <option value="click"  {% if selected_event_type == "click"  %}selected{% endif %}>Click</option>
+            <option value="view"   {% if selected_event_type == "view"   %}selected{% endif %}>View</option>
+            <option value="submit" {% if selected_event_type == "submit" %}selected{% endif %}>Submit</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Client</label>
+          <select name="client_id" class="filter-select filter-select-wide" onchange="this.form.submit()">
+            <option value="">All clients</option>
+            {% for c in clients %}
+              <option value="{{ c.uid }}" {% if selected_client and selected_client.uid == c.uid %}selected{% endif %}>
+                {{ c.client_name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Feature</label>
+          <select name="feature" class="filter-select filter-select-wide" onchange="this.form.submit()">
+            <option value="">All features</option>
+            {% for feat in distinct_features %}
+              <option value="{{ feat }}" {% if selected_feature == feat %}selected{% endif %}>{{ feat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Feature Path</label>
+          <select name="feature_path" class="filter-select filter-select-wider" onchange="this.form.submit()">
+            <option value="">All paths</option>
+            {% for path in distinct_feature_paths %}
+              <option value="{{ path }}" {% if selected_feature_path == path %}selected{% endif %}>
+                {{ path|truncatechars:40 }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if selected_client or selected_feature or selected_feature_path %}
+          <a href="{% url 'admin:analytics-dashboard' %}?days={{ selected_days }}" class="filter-clear">
+            Clear filters
+          </a>
+        {% endif %}
+
+      </div>
+
+      <!-- Active pills -->
+      {% if selected_client or selected_feature or selected_feature_path %}
+      <div class="filter-pills">
+        {% if selected_client %}
+          <span class="filter-pill">
+            Client: {{ selected_client.client_name }}
+            <button type="button" onclick="clearParam('client_id')">×</button>
+          </span>
+        {% endif %}
+        {% if selected_feature %}
+          <span class="filter-pill">
+            Feature: {{ selected_feature }}
+            <button type="button" onclick="clearParam('feature')">×</button>
+          </span>
+        {% endif %}
+        {% if selected_feature_path %}
+          <span class="filter-pill">
+            Path: {{ selected_feature_path|truncatechars:30 }}
+            <button type="button" onclick="clearParam('feature_path')">×</button>
+          </span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </form>
+  </div>
+
+  <!-- ── KPI cards ── -->
+  <div class="kpi-grid">
+
+    <div class="kpi-card">
+      <p class="kpi-label">Total Events</p>
+      <p class="kpi-value">{{ data.kpis.total_events }}</p>
+      <p class="kpi-hint">All tracked interactions</p>
     </div>
 
-    <div class="bg-white rounded-2xl p-6 shadow-sm border">
-      <p class="text-sm text-slate-500">Active Users</p>
-      <p class="text-3xl font-bold mt-3">
-        {{ data.kpis.active_users }}
-      </p>
-      <p class="text-xs text-slate-400 mt-2">Users with at least one event</p>
+    <div class="kpi-card">
+      <p class="kpi-label">Active Users</p>
+      <p class="kpi-value">{{ data.kpis.active_users }}</p>
+      <p class="kpi-hint">Users with ≥1 event in range</p>
     </div>
 
-    <div class="bg-white rounded-2xl p-6 shadow-sm border">
-      <p class="text-sm text-slate-500">Top Feature</p>
-      <p class="text-xl font-semibold mt-4">
+    <div class="kpi-card">
+      <p class="kpi-label">Top Feature</p>
+      <p class="kpi-value kpi-value-sm" style="margin-top:14px;">
         {{ data.kpis.top_feature|default:"—" }}
       </p>
-      <p class="text-xs text-slate-400 mt-2">Most used action</p>
+      <p class="kpi-hint">Most used in period</p>
     </div>
 
   </div>
 
-  <!-- Charts -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <!-- ── Charts ── -->
+  <div class="charts-grid">
 
-    <!-- Feature Usage -->
-    <div class="bg-white rounded-2xl p-6 shadow-sm border">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-lg">Top Features</h2>
-        <span class="text-xs text-slate-400">Clicks</span>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Top Features</span>
+        <span class="chart-meta">{{ selected_event_type|default:"click"|title }}s</span>
       </div>
-      <canvas id="featureChart" height="140"></canvas>
+      <canvas id="featureChart" height="220"></canvas>
     </div>
 
-    <!-- Usage Trend -->
-    <div class="bg-white rounded-2xl p-6 shadow-sm border">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-lg">Usage Trend</h2>
-        <span class="text-xs text-slate-400">Daily events</span>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Daily Trend</span>
+        <span class="chart-meta">Events / day</span>
       </div>
-      <canvas id="dailyChart" height="140"></canvas>
+      <canvas id="dailyChart" height="220"></canvas>
     </div>
 
   </div>
 
-  <!-- Feature Table -->
-  <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
-    <div class="px-6 py-4 border-b">
-      <h2 class="font-semibold text-lg">Feature Breakdown</h2>
-      <p class="text-sm text-slate-500 mt-1">Detailed usage counts with hierarchy</p>
+  <!-- ── Feature table ── -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <div>
+        <p class="table-card-title">Feature Breakdown</p>
+        <p class="table-card-sub">Click a feature to drill down</p>
+      </div>
+      <span class="table-card-count">{{ data.charts.feature_usage|length }} features</span>
     </div>
 
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-slate-600">
+    <table class="data-table">
+      <thead>
         <tr>
-          <th class="p-4 text-left font-medium">Feature</th>
-          <th class="p-4 text-left font-medium">Feature Path</th>
-          <th class="p-4 text-right font-medium">Clicks</th>
+          <th>Feature</th>
+          <th>Path</th>
+          <th class="right">Count</th>
+          <th class="w-bar">Share</th>
         </tr>
       </thead>
       <tbody>
+        {% with max_total=data.charts.feature_usage.0.total %}
         {% for f in data.charts.feature_usage %}
-        <tr class="border-t hover:bg-slate-50 transition">
-          <td class="p-4 font-medium">
-  <a
-    href="{% url 'admin:analytics-feature-detail' f.feature %}?days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}"
-    class="text-blue-600 hover:underline"
-  >
-    {{ f.feature }}
-  </a>
-</td>
-          <td class="p-4 text-xs">
+        <tr>
+          <td>
+            <a class="feat-link"
+               href="{% url 'admin:analytics-feature-detail' %}?feature={{ f.feature|urlencode }}&days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}">
+              {{ f.feature }}
+            </a>
+          </td>
+          <td>
             {% if f.feature_path %}
-              <code class="bg-slate-100 px-2 py-1 rounded">{{ f.feature_path }}</code>
+              <code class="code-tag">{{ f.feature_path }}</code>
             {% else %}
-              <span class="text-slate-400">—</span>
+              <span class="dash-col">—</span>
             {% endif %}
           </td>
-          <td class="p-4 text-right">{{ f.total }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="3" class="p-6 text-center text-slate-400">
-            No data available
+          <td class="right num">{{ f.total }}</td>
+          <td>
+            {% if max_total %}
+              <div class="bar-track">
+                <div class="bar-fill pct-bar" data-w="{% widthratio f.total max_total 100 %}"></div>
+              </div>
+            {% endif %}
           </td>
         </tr>
+        {% empty %}
+        <tr class="empty-row"><td colspan="4">No events in this period</td></tr>
         {% endfor %}
+        {% endwith %}
       </tbody>
     </table>
   </div>
 
 </div>
 
-<!-- JSON Injection -->
 {{ data.charts.feature_usage|json_script:"feature-data" }}
 {{ data.charts.daily_usage|json_script:"daily-data" }}
 
 <script>
-const featureData = JSON.parse(
-  document.getElementById("feature-data").textContent
-);
-const dailyData = JSON.parse(
-  document.getElementById("daily-data").textContent
-);
+(function () {
+  const BLUE      = "rgba(59,130,246,1)";
+  const BLUE_SOFT = "rgba(59,130,246,0.12)";
+  const SLATE     = "#94A3B8";
+  const MONO      = "DM Mono, monospace";
 
-new Chart(document.getElementById("featureChart"), {
-  type: "bar",
-  data: {
-    labels: featureData.map(f => f.feature),
-    datasets: [{
-      label: "Clicks",
-      data: featureData.map(f => f.total),
-      borderRadius: 6,
-    }]
-  },
-  options: {
-    plugins: {
-      legend: { display: false }
-    }
-  }
-});
+  // Progress bars
+  document.querySelectorAll(".pct-bar[data-w]").forEach(el => {
+    el.style.width = (el.dataset.w || 0) + "%";
+  });
 
-new Chart(document.getElementById("dailyChart"), {
-  type: "line",
-  data: {
-    labels: dailyData.map(d => d.day),
-    datasets: [{
-      label: "Events",
-      data: dailyData.map(d => d.total),
-      tension: 0.4,
-      fill: false
-    }]
-  },
-  options: {
-    plugins: {
-      legend: { display: false }
+  // Feature bar chart
+  const featureData = JSON.parse(document.getElementById("feature-data").textContent);
+  new Chart(document.getElementById("featureChart"), {
+    type: "bar",
+    data: {
+      labels: featureData.map(f => f.feature),
+      datasets: [{
+        data: featureData.map(f => f.total),
+        backgroundColor: BLUE,
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x.toLocaleString()} events` } }
+      },
+      scales: {
+        x: {
+          grid: { color: "rgba(0,0,0,0.04)" },
+          ticks: { color: SLATE, font: { family: MONO, size: 11 } },
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: "#475569", font: { family: "DM Sans, sans-serif", size: 12 } },
+        }
+      }
     }
-  }
-});
+  });
+
+  // Daily trend
+  const dailyData = JSON.parse(document.getElementById("daily-data").textContent);
+  new Chart(document.getElementById("dailyChart"), {
+    type: "line",
+    data: {
+      labels: dailyData.map(d => d.day),
+      datasets: [{
+        data: dailyData.map(d => d.total),
+        borderColor: BLUE,
+        borderWidth: 2,
+        pointBackgroundColor: BLUE,
+        pointRadius: dailyData.length > 30 ? 0 : 3,
+        pointHoverRadius: 5,
+        tension: 0.35,
+        fill: true,
+        backgroundColor: BLUE_SOFT,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()} events` } }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: SLATE, font: { family: MONO, size: 11 }, maxTicksLimit: 8 }
+        },
+        y: {
+          grid: { color: "rgba(0,0,0,0.04)" },
+          ticks: { color: SLATE, font: { family: MONO, size: 11 } },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+
+  // Export button — builds URL from current filter state
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    const form   = document.getElementById("filterForm");
+    const params = new URLSearchParams(new FormData(form));
+    for (const [k, v] of [...params.entries()]) { if (!v) params.delete(k); }
+    window.location.href = "{% url 'admin:analytics-export-csv' %}?" + params.toString();
+  });
+
+  // Filter pill clear
+  window.clearParam = function (name) {
+    const sel = document.getElementById("filterForm").querySelector(`[name="${name}"]`);
+    if (sel) sel.value = "";
+    document.getElementById("filterForm").submit();
+  };
+}());
 </script>
 
 {% endblock %}

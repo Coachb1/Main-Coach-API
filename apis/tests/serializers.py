@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from commons.youtube_utils import format_youtube_link
 from tests.choices import InteractionModeChoices, QuestionTypeChoices, TestTypeChoices, QuestionForChoices, ScenarioCaseChoices
-from tests.models import CaseMappings, Collection, Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
+from tests.models import CaseMappings, Collection, ConceptSession, Course, CoursePackage, Module, ModuleForLater, ModuleLike, ModuleProgress, Test, TestMapping, TestQuestion, Psychometric, TestRecommendation, UserProgress, UserTestMapping
 from users.models import User
 from commons.utils import sanitize_text
 
@@ -553,7 +553,8 @@ class UserReportSerializer(serializers.ModelSerializer):
 class CaseMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaseMappings
-        fields = ['tab_name', 'embed_link', 'transform_iq', "action_name", "sticker"]
+        fields = ['uid', 'tab_name', 'embed_link', 'transform_iq', "action_name", "sticker"]
+        read_only_fields = ['uid']
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -562,3 +563,33 @@ class CollectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Collection
         fields = ['id', 'collection_name', 'case_items', 'heading','action_tab_info','iframe_link','iframe_title','iframe_subtitle']
+
+
+
+class ConceptSessionSerializer(serializers.ModelSerializer):
+
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    collection_name = serializers.CharField(source="collection.collection_name", read_only=True)
+    tab_name = serializers.CharField(source="case_mapping.tab_name", read_only=True)
+
+    class Meta:
+        model = ConceptSession
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "collection",
+            "collection_name",
+            "case_mapping",
+            "tab_name",
+            "status",
+            "completion_percentage",
+            "started_at",
+            "ended_at",
+            "last_activity_at",
+        ]
+        read_only_fields = [
+            "started_at",   
+            "ended_at",
+            "last_activity_at",
+        ]
