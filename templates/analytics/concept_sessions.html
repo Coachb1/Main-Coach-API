@@ -1,0 +1,444 @@
+{% extends "analytics/admin_base.html" %}
+{% load static %}
+
+{% block page_title %}User Sessions{% endblock %}
+{% block nav_concepts %}active{% endblock %}
+
+
+{% block analytics_content %}
+
+<div class="page">
+
+<!-- Header -->
+
+<div class="page-header">
+
+<div>
+<h1 class="page-title">User Sessions</h1>
+
+<p class="page-sub">
+{% if selected_case_mapping %}
+{{ selected_case_mapping }} · completion breakdown
+{% else %}
+All case mappings · completion overview
+{% endif %}
+</p>
+
+</div>
+
+<a id="exportBtn" class="btn-dark">
+Export CSV
+</a>
+
+</div>
+
+
+<!-- Filters -->
+
+<div class="filter-card">
+
+<form method="get" id="filterForm">
+
+<div class="filter-row">
+
+<div class="filter-group">
+
+<label class="filter-label">Case Mapping</label>
+
+<select name="case_mapping_id"
+class="filter-select"
+onchange="this.form.submit()">
+
+<option value="">All case mappings</option>
+
+{% for cm in all_case_mappings %}
+
+<option value="{{ cm.uid }}"
+{% if selected_case_mapping and selected_case_mapping.uid == cm.uid %}selected{% endif %}>
+{{ cm }}
+</option>
+
+{% endfor %}
+
+</select>
+
+</div>
+
+
+<div class="filter-group">
+
+<label class="filter-label">Client</label>
+
+<select name="client_id"
+class="filter-select"
+onchange="this.form.submit()">
+
+<option value="">All clients</option>
+
+{% for c in clients %}
+
+<option value="{{ c.uid }}"
+{% if selected_client and selected_client.uid == c.uid %}selected{% endif %}>
+
+{{ c.client_name }}
+
+</option>
+
+{% endfor %}
+
+</select>
+
+</div>
+
+
+{% if selected_case_mapping or selected_client %}
+
+<a href="{% url 'admin:analytics-concept-sessions' %}"
+class="filter-clear">
+
+Clear filters
+
+</a>
+
+{% endif %}
+
+</div>
+
+</form>
+
+</div>
+
+
+<!-- KPI cards -->
+
+<div class="kpi-grid">
+
+<div class="kpi-card">
+<p class="kpi-label">Total Sessions</p>
+<p class="kpi-value stat-num">{{ data.kpis.total_sessions }}</p>
+</div>
+
+<div class="kpi-card">
+<p class="kpi-label">Completed</p>
+<p class="kpi-value stat-num" style="color:#10B981;">
+{{ data.kpis.completed }}
+</p>
+</div>
+
+<div class="kpi-card">
+<p class="kpi-label">In Progress</p>
+<p class="kpi-value stat-num" style="color:#F59E0B;">
+{{ data.kpis.in_progress }}
+</p>
+</div>
+
+<div class="kpi-card">
+<p class="kpi-label">Completion Rate</p>
+<p class="kpi-value stat-num">
+{{ data.kpis.completion_rate }}%
+</p>
+</div>
+
+<div class="kpi-card">
+<p class="kpi-label">Avg Progress</p>
+<p class="kpi-value stat-num">
+{{ data.kpis.avg_completion_pct }}%
+</p>
+</div>
+
+</div>
+
+
+<!-- Charts -->
+
+<div class="charts-grid">
+
+<div class="chart-card">
+
+<div class="chart-header">
+<span class="chart-title">Status Breakdown</span>
+</div>
+
+<div style="display:flex;align-items:center;gap:24px;">
+
+<div style="width:160px;height:160px;position:relative;">
+<canvas id="statusDonut"></canvas>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px;font-size:14px;">
+
+<div style="display:flex;align-items:center;gap:8px;">
+<span style="width:10px;height:10px;background:#10B981;border-radius:50%;"></span>
+Completed
+<span class="stat-num" style="margin-left:auto;">
+{{ data.kpis.completed }}
+</span>
+</div>
+
+<div style="display:flex;align-items:center;gap:8px;">
+<span style="width:10px;height:10px;background:#F59E0B;border-radius:50%;"></span>
+In Progress
+<span class="stat-num" style="margin-left:auto;">
+{{ data.kpis.in_progress }}
+</span>
+</div>
+
+<div style="display:flex;align-items:center;gap:8px;">
+<span style="width:10px;height:10px;background:#CBD5E1;border-radius:50%;"></span>
+Started
+<span id="startedCount" class="stat-num" style="margin-left:auto;">
+—
+</span>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="chart-card">
+
+<div class="chart-header">
+<span class="chart-title">Completion by Case Mapping</span>
+</div>
+
+<canvas id="mappingChart" height="200"></canvas>
+
+</div>
+
+</div>
+
+
+<!-- Table -->
+
+<div class="table-card">
+
+<div class="table-header">
+
+<span class="table-title">Case Mapping Breakdown</span>
+
+<span class="stat-num">
+{{ data.by_case_mapping|length }} mappings
+</span>
+
+</div>
+
+
+<table class="data-table">
+
+<thead>
+
+<tr>
+<th>Case Mapping</th>
+<th class="right">Total</th>
+<th class="right">Completed</th>
+<th class="right">In Progress</th>
+<th class="right">Avg %</th>
+<th>Completion Rate</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for row in data.by_case_mapping %}
+
+<tr>
+
+<td>
+
+<a href="{% url 'admin:analytics-concept-sessions' %}?case_mapping_id={{ row.case_mapping__uid }}"
+style="color:#2563EB;text-decoration:none;font-weight:500;">
+
+{{ row.case_mapping_str | default:"—" }}
+
+</a>
+
+</td>
+
+<td class="right stat-num">
+{{ row.total_sessions }}
+</td>
+
+<td class="right stat-num" style="color:#10B981;">
+{{ row.completed }}
+</td>
+
+<td class="right stat-num" style="color:#F59E0B;">
+{{ row.in_progress }}
+</td>
+
+<td class="right stat-num">
+{{ row.avg_completion }}%
+</td>
+
+<td>
+
+<div style="display:flex;align-items:center;gap:8px;">
+
+<div class="bar-track" style="flex:1;">
+
+<div class="bar-fill pct-bar"
+data-w="{{ row.completion_rate }}">
+</div>
+
+</div>
+
+<span class="stat-num" style="font-size:12px;">
+{{ row.completion_rate }}%
+</span>
+
+</div>
+
+</td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+
+<td colspan="6" style="padding:48px;text-align:center;color:#94A3B8;">
+No session data available
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
+{{ data.by_case_mapping|json_script:"mapping-data" }}
+{{ data.kpis|json_script:"kpi-data" }}
+
+<script>
+(function () {
+  const GREEN = "rgba(16,185,129,1)";
+  const AMBER = "rgba(245,158,11,1)";
+  const ROSE  = "rgba(251,113,133,1)";
+  const SLATE = "rgba(203,213,225,1)";
+  const MONO  = "DM Mono";
+
+  const kpis     = JSON.parse(document.getElementById("kpi-data").textContent);
+  const mappings = JSON.parse(document.getElementById("mapping-data").textContent);
+
+  // ── "Started" legend count (total - completed - in_progress) ──
+  const startedCount = kpis.total_sessions - kpis.completed - kpis.in_progress;
+  document.getElementById("startedCount").textContent = Math.max(0, startedCount);
+
+  // ── Progress bars: apply width + colour from data attributes ──
+  document.querySelectorAll(".pct-bar[data-w]").forEach(el => {
+    const pct    = parseFloat(el.dataset.w) || 0;
+    const status = el.dataset.status || "";          // only present on user rows
+    el.style.width = pct + "%";
+    if (status === "completed" || pct >= 100) {
+      el.style.backgroundColor = GREEN.replace(",1)", ",0.9)");
+    } else if (status === "in_progress" || pct > 0) {
+      el.style.backgroundColor = AMBER.replace(",1)", ",0.9)");
+    } else {
+      el.style.backgroundColor = "#CBD5E1";          // slate-300
+    }
+  });
+
+  // ── Status donut ──
+  new Chart(document.getElementById("statusDonut"), {
+    type: "doughnut",
+    data: {
+      labels: ["Completed", "In Progress", "Started"],
+      datasets: [{
+        data: [
+          kpis.completed,
+          kpis.in_progress,
+          Math.max(0, startedCount),
+        ],
+        backgroundColor: [GREEN, AMBER, SLATE],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      cutout: "72%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.parsed} sessions`
+          }
+        }
+      }
+    }
+  });
+
+  // ── Completion rate bar chart per mapping ──
+  const topMappings = mappings.slice(0, 10);
+  new Chart(document.getElementById("mappingChart"), {
+    type: "bar",
+    data: {
+      labels: topMappings.map(m =>
+        m.case_mapping_str ? String(m.case_mapping_str).slice(0, 8) + "…" : "—"
+      ),
+      datasets: [{
+        label: "Completion rate %",
+        data: topMappings.map(m => m.completion_rate),
+        backgroundColor: topMappings.map(m =>
+          m.completion_rate >= 75 ? GREEN :
+          m.completion_rate >= 40 ? AMBER : ROSE
+        ),
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}% completion rate` } }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#94A3B8", font: { family: MONO, size: 10 } }
+        },
+        y: {
+          grid: { color: "rgba(0,0,0,0.04)" },
+          ticks: {
+            color: "#94A3B8",
+            font: { family: MONO, size: 11 },
+            callback: v => v + "%"
+          },
+          min: 0,
+          max: 100,
+        }
+      }
+    }
+  });
+
+  const params = new URLSearchParams();
+
+  const caseMappingId = "{{ selected_case_mapping.uid|default:'' }}";
+  const clientId = "{{ selected_client.uid|default:'' }}";
+
+  if (caseMappingId) {
+    params.set("case_mapping_id", caseMappingId);
+  }
+
+  if (clientId) {
+    params.set("client_id", clientId);
+  }
+
+  const base = "{% url 'admin:analytics-concept-sessions-export' %}";
+  document.getElementById("exportBtn").href =
+    base + (params.toString() ? "?" + params.toString() : "");
+  }());
+</script>
+
+{% endblock %}
