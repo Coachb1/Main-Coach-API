@@ -394,6 +394,8 @@ class ClientUserInfo(TenantAwareModel):
                 blank=True,
                 related_name="client_users"
             )
+    company_information = models.JSONField(null=True, blank=True, default=None)
+    
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)

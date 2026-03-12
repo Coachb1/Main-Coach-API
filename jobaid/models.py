@@ -10,6 +10,7 @@ class JobAid(MyModel):
         ('job_aid', 'Job Aid'),
         ('form', 'Form'),
         ('prompt_generator', 'Prompt Generator'),
+        ('transformation_program', 'Transformation Program'),
     ]
     title = models.CharField(max_length=255, verbose_name="Title")
     description = models.TextField(verbose_name="Description")
@@ -24,9 +25,11 @@ class JobAid(MyModel):
     is_prompt_generation = models.BooleanField(default=True, verbose_name="Is Prompt Generation")
     evaluation_prompt = models.TextField(verbose_name="Evaluation Prompt", null=True, blank=True, default=get_prompt("evaluation_prompt"))
     evaluate_jobaid = models.BooleanField(default=False, verbose_name="Evaluation Jobaid")
+
+    custom_prompt = models.TextField(verbose_name="Custom Prompt", null=True, blank=True, default=None, help_text="Used for transformation programs where the prompt is dynamic based on user input")
     def save(self, *args, **kwargs):
         # Apply logic BEFORE saving
-        if self.job_aid_type == "form":
+        if self.job_aid_type == "form" or self.job_aid_type == 'transformation_program':
             self.is_validation = False
         super().save(*args, **kwargs)
 
@@ -101,6 +104,7 @@ class JobAidSession(MyModel):
             blank=True,
             related_name="jobaid_sessions"
         )
+    output = models.TextField(verbose_name="Output", null=True, blank=True, default=None, help_text="Stores the output generated for transformation programs")
     
     class Meta:
         verbose_name = "Job Aid Session"
