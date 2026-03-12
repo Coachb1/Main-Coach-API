@@ -19,7 +19,7 @@ from django.urls import path
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib import admin, messages
-from .forms import LibraryBotConfigForm, TenantForm, ClientForm, UserAdminForm, UserForm
+from .forms import ClientUserInfoForm, LibraryBotConfigForm, TenantForm, ClientForm, UserAdminForm, UserForm
 from django.db.models import Q
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
@@ -137,6 +137,7 @@ class ClientResourceAdmin(admin.ModelAdmin):
     clients.short_description = "Clients"
 
 class ClientUserInfoAdmin(TenantAwareModelAdmin):
+    form = ClientUserInfoForm
     change_list_template = "admin/clientuserinfo/change_list.html"  # custom template for button
     list_per_page = 10
     list_display = ('id','uid','client_name','domain_name', "client_logo", 'widget_access_code','ask_access_code','is_repeat','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer','send_profile_for_reapproval')

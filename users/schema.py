@@ -182,3 +182,20 @@ ANNOUNCEMENT_SCHEMA = {
         }
     }
 }
+
+COMPANY_INFO_SCHEMA = {
+    'type': 'object',
+    'label': 'Company Information',
+    'properties': {
+        'company_name': {
+            'type': 'string',
+            'label': 'Company Name',
+            'default': ''
+        },
+        'company_url': {
+            'type': 'string',
+            'label': 'Company URL',
+            'default': ''
+        }
+    }
+}        

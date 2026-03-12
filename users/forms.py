@@ -8,7 +8,7 @@ from commons.db.json_form_mixins import UniversalSchemaWidget
 from tenants.models import Tenant
 from tests.forms import BUTTON_CONFIG_SCHEMA
 from users.models import ClientUserInfo, LibraryBotConfig, User
-from users.schema import ANNOUNCEMENT_SCHEMA, BOT_CONFIG_SCHEMA, DEFAULT_FILTERS_SCHEMA, FEATURE_BOX_SCHEMA, FEATURE_BUTTON_SCHEMA
+from users.schema import ANNOUNCEMENT_SCHEMA, BOT_CONFIG_SCHEMA, COMPANY_INFO_SCHEMA, DEFAULT_FILTERS_SCHEMA, FEATURE_BOX_SCHEMA, FEATURE_BUTTON_SCHEMA
 
 class TenantForm(forms.ModelForm):
     class Meta:
@@ -60,4 +60,11 @@ class LibraryBotConfigForm(forms.ModelForm):
             'card_button_config':        UniversalSchemaWidget(schema=BUTTON_CONFIG_SCHEMA),
         }
 
-    
+class ClientUserInfoForm(forms.ModelForm):
+    class Meta:
+        model = ClientUserInfo
+        fields = '__all__'
+        widgets = {
+            'company_information': UniversalSchemaWidget(COMPANY_INFO_SCHEMA)
+        }
+               
