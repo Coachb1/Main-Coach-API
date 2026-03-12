@@ -1,5 +1,6 @@
 
 import json
+from string import Template
 from rest_framework import status, mixins
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -19,7 +20,7 @@ from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 
 from .serializers import JobAidSerializer, JobAidSessionSerializer
-from users.models import User  # Adjust if your user model import is different
+from users.models import ClientUserInfo, User  # Adjust if your user model import is different
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,10 @@ class JobAidViewSet(ApiViewSet,
                 )
 
             jobaid = get_object_or_404(JobAid, uid=jobaid_id)
-
+            client = None
+            if client_id:
+                client = ClientUserInfo.objects.filter(uid=client_id, deleted=False).first()
+                
             # ── Handle file-upload questions ─────────────────────────────────
             # Frontend sends files as:  file_upload[<question_key>] = <File>
             # We upload each to Cloudinary and replace the qna value with the URL.
@@ -175,6 +179,17 @@ class JobAidViewSet(ApiViewSet,
             # Initialize empty report data
             generated_report_data = {}
             generated_prompt_output = None
+            output = None
+
+            if jobaid.job_aid_type == "transformation_program":
+                input_data = "\n".join([f"{q}: {ans}" for q, ans in qna.items()])
+                company_name = client.company_information.get("company_name") if client and client.company_information else "Unknown Company"
+                company_url = client.company_information.get("company_url") if client and client.company_information else "https://www.coachbots.com"
+                input_data = f"Company Name: {company_name}\nCompany URL: {company_url}\n\n" + input_data
+                prompt = f"User Input: {input_data}\n" + jobaid.custom_prompt
+                output = generic_completion(prompt)
+                
+
 
             # ✅ Only generate report if jobaid.is_report == True
             if jobaid.is_report and jobaid.report_generation_prompt:
@@ -218,7 +233,8 @@ class JobAidViewSet(ApiViewSet,
                 status="completed",
                 generated_report_data=generated_report_data,
                 generated_prompt=generated_prompt_output,
-                file_qna=file_qna if file_qna else None
+                file_qna=file_qna if file_qna else None,
+                output=output
             )
 
             # ✅ Only set report_url if a report was generated
@@ -240,7 +256,8 @@ class JobAidViewSet(ApiViewSet,
                 {
                     'session_id': session.id,
                     'report_url': session.report_url if jobaid.is_report else None,
-                    'generated_prompt': generated_prompt_output
+                    'generated_prompt': generated_prompt_output,
+                    'output': output
                 },
                 status=status.HTTP_200_OK
             )
