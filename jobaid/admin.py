@@ -6,6 +6,33 @@ from jobaid.form import BulkResourceActionForm, JobAidForm
 from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 # Register your models here.
+from django.contrib.admin import SimpleListFilter
+from users.models import ClientUserInfo
+
+
+class ClientFilter(SimpleListFilter):
+    title = "Client"
+    parameter_name = "client"
+
+    def lookups(self, request, model_admin):
+
+        # Get unique client_ids used in sessions
+        client_ids = (
+            model_admin.model.objects
+            .exclude(client_id__isnull=True)
+            .exclude(client_id__exact="")
+            .values_list("client_id", flat=True)
+            .distinct()
+        )
+
+        clients = ClientUserInfo.objects.filter(uid__in=client_ids)
+
+        return [(c.uid, f"{c.client_name} ({c.uid})") for c in clients]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(client_id=self.value())
+        return queryset
 
 class JobAidQuestionInline(admin.TabularInline):
     model = JobAidQuestion
@@ -39,44 +66,103 @@ class JobAidQuestionAdmin(admin.ModelAdmin):
 
 @admin.register(JobAidSession)
 class JobAidSessionAdmin(admin.ModelAdmin):
+
     list_display = (
         "job_aid",
         "email",
         "full_name",
-        "status",
+        "status_badge",
+        "resource_count",
+        "likes",
+        "client_id",
+        "report_link",
         "created_at",
-        "report_url",
-        "resource_count",       # new: shows how many resources are assigned
     )
+
+    list_select_related = ("job_aid",)
+
     list_filter = (
         "status",
+        ClientFilter,
         "job_aid",
         "created_at",
     )
-    # Extended search: also searches job_aid name and resource titles
+
     search_fields = (
         "email",
         "full_name",
-        "job_aid__name",        # adjust to actual field name on JobAid
-        "resources__title",     # adjust to actual field name on Resource
-        "client_id"
+        "job_aid__title",
+        "resources__name",
+        "client_id",
     )
-    readonly_fields = ("created_at", "generated_report_data")
-    filter_horizontal = ("resources",)
-    actions = ["bulk_assign_resources_action", "bulk_deassign_resources_action"]
 
-    # ------------------------------------------------------------------ #
-    #  Extra list_display column                                           #
-    # ------------------------------------------------------------------ #
+    readonly_fields = (
+        "created_at",
+        "generated_report_data",
+    )
+
+    filter_horizontal = ("resources",)
+
+    date_hierarchy = "created_at"
+
+    actions = [
+        "bulk_assign_resources_action",
+        "bulk_deassign_resources_action",
+    ]
+
+    # ---------------------------------------------------------
+    # Status Badge (visual)
+    # ---------------------------------------------------------
+
+    @admin.display(description="Status")
+    def status_badge(self, obj):
+
+        colors = {
+            "completed": "#28a745",
+            "in_progress": "#ffc107",
+            "cancelled": "#dc3545",
+        }
+
+        return format_html(
+            '<span style="padding:3px 8px;border-radius:6px;background:{};color:white;font-weight:600;">{}</span>',
+            colors.get(obj.status, "#6c757d"),
+            obj.get_status_display(),
+        )
+
+    # ---------------------------------------------------------
+    # Resource Count
+    # ---------------------------------------------------------
 
     @admin.display(description="# Resources")
     def resource_count(self, obj):
         count = obj.resources.count()
+
         return format_html(
-            '<span style="font-weight:bold;color:{}">{}</span>',
+            '<span style="font-weight:600;color:{};">{}</span>',
             "#28a745" if count else "#dc3545",
             count,
         )
+
+    # ---------------------------------------------------------
+    # Likes
+    # ---------------------------------------------------------
+
+    @admin.display(description="👍 Likes")
+    def likes(self, obj):
+        return obj.like_count
+
+    # ---------------------------------------------------------
+    # Report Link
+    # ---------------------------------------------------------
+
+    @admin.display(description="Report")
+    def report_link(self, obj):
+        if obj.report_url:
+            return format_html(
+                '<a href="{}" target="_blank" style="color:#0d6efd;">View</a>',
+                obj.report_url,
+            )
+        return "-"
 
     # ------------------------------------------------------------------ #
     #  Bulk actions — redirect to an intermediate confirmation page        #
