@@ -116,16 +116,16 @@ class PortalPageConfigInline(admin.StackedInline):
 @admin.register(ClientResource)
 class ClientResourceAdmin(admin.ModelAdmin):
     list_per_page = 10
-    list_display = ("name", "label", "clients", "url")
+    list_display = ("name", "label", "clients", "url", "info")
     search_fields = ("name", "url", "label")
-    list_editable = ("url", "label")
+    list_editable = ("url", "label", "info")
     ordering = ("-id",)
     fieldsets  = (
         ("Resource Basic", {
             "fields": ("uid", "name")
         }),
         ("Resource Details", {
-            "fields": ("label", "url")
+            "fields": ("label", "url", "info")
         }),
     )
 

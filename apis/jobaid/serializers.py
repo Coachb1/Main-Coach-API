@@ -62,34 +62,26 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
         editable_qna = []
         resource_qna = []
 
-        # ---------- CLIENT ----------
-        # client = None
-        # if instance.client_id:
-        #     client = ClientUserInfo.objects.filter(
-        #         deleted=False,
-        #         uid=instance.client_id
-        #     ).first()
-
-        # client_resources = list(
-        #     client.resources
-        #         .filter(is_active=True)
-        #         .order_by("order")
-        #         .values("name", "url")
-        # ) if client else []
-
         session_resources =  list(
             instance.resources
                 .filter(is_active=True)
                 .order_by("order")
-                .values("label", "url")
+                .values("label", "url", 'info')
         )
+        client_resources = []
 
-        # if len(session_resources) == 0:
-        #     session_resources = [
-        #         {"label": "Risk, Governance & Data", "url": ""},
-        #         {"label": "Value & Execution Path", "url": ""},
-        #         {"label": "Decision & Ownership Context", "url": ""},
-        #     ]
+        if len(session_resources) == 0:
+            if instance.client_id:
+                client = ClientUserInfo.objects.filter(
+                    deleted=False,
+                    uid=instance.client_id
+                ).first()
+                client_resources = list(
+                    client.resources
+                        .filter(is_active=True)
+                        .order_by("order")
+                        .values("label", "url", 'info')
+                ) if client else []
        
 
         # ---------- JOB QUESTIONS ----------
@@ -130,6 +122,8 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
                 "question_type": "other",
             }
             if q_text == "Innovation Score":
+                que_data['question'] = jobaid.labels.get("innovation_score", "Align Priority") if jobaid.labels else "Align Priority"
+                que_data['question_type'] = "innovation_score"
                 innovation_score_qna.append(que_data)
             else:
                 normal_qna.append(que_data)
@@ -140,6 +134,7 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
                 "question": resource["label"],
                 "answer": resource["url"],
                 "question_type": "resource",
+                "info": resource.get("info", "")
             })
 
         # ---------- FINAL ORDER ----------
@@ -160,4 +155,14 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
         ]
 
         data["ordered_qna"] = ordered_qna
+
+
+        client_resources = [{
+            "question": resource["label"],
+            "answer": resource["url"],
+            "question_type": "resource",
+            "info": resource.get("info", "")
+        } for resource in client_resources  
+        ]
+        data["client_resources"] = client_resources
         return data
