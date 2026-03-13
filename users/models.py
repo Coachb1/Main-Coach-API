@@ -742,6 +742,7 @@ class ClientResource(MyModel): # NOTE: this table is being used for both client 
     name = models.CharField(max_length=125)
     label = models.CharField(max_length=125)
     url = models.URLField()
+    info = models.TextField(null=True, blank=True, default=None)
 
     order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
