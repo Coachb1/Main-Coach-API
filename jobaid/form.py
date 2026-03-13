@@ -1,6 +1,9 @@
 
 from django import forms
 
+from commons.db.json_form_mixins import UniversalSchemaWidget
+from jobaid.models import JobAid
+from jobaid.schema import LABELS_SCHEMA
 from users.models import ClientResource
 
 
@@ -19,3 +22,10 @@ class BulkResourceActionForm(forms.Form):
         label="Resources",
     )
 
+class JobAidForm(forms.ModelForm):
+    class Meta:
+        model = JobAid
+        fields = '__all__'
+        widgets = {
+            'labels': UniversalSchemaWidget(LABELS_SCHEMA)
+        }
