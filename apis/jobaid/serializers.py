@@ -84,12 +84,12 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
                 .values("label", "url")
         )
 
-        if len(session_resources) == 0:
-            session_resources = [
-                {"label": "Risk, Governance & Data", "url": ""},
-                {"label": "Value & Execution Path", "url": ""},
-                {"label": "Decision & Ownership Context", "url": ""},
-            ]
+        # if len(session_resources) == 0:
+        #     session_resources = [
+        #         {"label": "Risk, Governance & Data", "url": ""},
+        #         {"label": "Value & Execution Path", "url": ""},
+        #         {"label": "Decision & Ownership Context", "url": ""},
+        #     ]
        
 
         # ---------- JOB QUESTIONS ----------
