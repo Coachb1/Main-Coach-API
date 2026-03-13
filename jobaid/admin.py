@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.utils.html import format_html
 
 from django.shortcuts import redirect
-from jobaid.form import BulkResourceActionForm
+from jobaid.form import BulkResourceActionForm, JobAidForm
 from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 # Register your models here.
@@ -16,6 +16,7 @@ class JobAidQuestionInline(admin.TabularInline):
 
 @admin.register(JobAid)
 class JobAidAdmin(admin.ModelAdmin):
+    form = JobAidForm
     list_display = ("title", "description", "validation_prompt_short", "report_generation_prompt_short", 'evaluation_prompt', "report_header", "report_footer")
     search_fields = ("title", "description")
     inlines = [JobAidQuestionInline]

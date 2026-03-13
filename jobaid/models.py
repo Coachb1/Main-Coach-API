@@ -4,6 +4,8 @@ from commons.db.model import MyModel
 from jobaid.helpers import get_prompt
 
 # Create your models here.
+def default_labels():
+    return {"Innovation Score": "Align Priority"}
 
 class JobAid(MyModel):
     JOB_TYPE_CHOICES = [
@@ -27,6 +29,9 @@ class JobAid(MyModel):
     evaluate_jobaid = models.BooleanField(default=False, verbose_name="Evaluation Jobaid")
 
     custom_prompt = models.TextField(verbose_name="Custom Prompt", null=True, blank=True, default=None, help_text="Used for transformation programs where the prompt is dynamic based on user input")
+
+    labels = models.JSONField(verbose_name="Labels", null=True, blank=True, default=default_labels, help_text="Custom labels for the job aid, e.g. {'Innovation Score': 'Align Priority'}")
+    
     def save(self, *args, **kwargs):
         # Apply logic BEFORE saving
         if self.job_aid_type == "form" or self.job_aid_type == 'transformation_program':
