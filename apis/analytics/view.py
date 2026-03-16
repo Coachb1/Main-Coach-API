@@ -23,9 +23,21 @@ class EventViewSet(viewsets.GenericViewSet):
 
         user = get_object_or_404(User, uid=serializer.validated_data["user_id"]) if serializer.validated_data.get("user_id") else None
 
+        # allow caller to pass hierarchical path; if they didn't provide a
+        # bare `feature` we will derive it from the path. the model's save
+        # hook ensures consistency as well.
+        feature = serializer.validated_data.get("feature")
+        feature_path = serializer.validated_data.get("feature_path", "")
+        
+        if not feature and feature_path:
+            # feature_path is a delimited string, extract the last element
+            path_list = feature_path.split("|")
+            feature = path_list[-1] if path_list else None
+
         Event.objects.create(
             event_type=serializer.validated_data["event_type"],
-            feature=serializer.validated_data["feature"],
+            feature=feature,
+            feature_path=feature_path,
             metadata=serializer.validated_data.get("metadata", {}),
             user=user,
             client=user.get_client() if user else None,
@@ -35,7 +47,13 @@ class EventViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def top(self, request):
-        data = top_features()
+        # support optional ``level`` parameter for hierarchical counts.
+        level_param = request.query_params.get("level")
+        try:
+            level = int(level_param) if level_param is not None else None
+        except ValueError:
+            level = None
+        data = top_features(level=level)
         return Response(data)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])

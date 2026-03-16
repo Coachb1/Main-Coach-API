@@ -389,7 +389,13 @@ class ClientUserInfo(TenantAwareModel):
             related_name="client_users"
         )
     client_logo = models.CharField(max_length=255,null=True, blank=True, default=None)
-
+    resources = models.ManyToManyField(
+                'ClientResource',
+                blank=True,
+                related_name="client_users"
+            )
+    company_information = models.JSONField(null=True, blank=True, default=None)
+    
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)
@@ -730,3 +736,20 @@ class UserMindmap(TenantAwareModel):
 
     def __str__(self):
         return f"{self.user.name} - Mindmap"
+    
+
+class ClientResource(MyModel): # NOTE: this table is being used for both client resources and jobaid session. treat it a resource table
+    name = models.CharField(max_length=125)
+    label = models.CharField(max_length=125)
+    url = models.URLField()
+    info = models.TextField(null=True, blank=True, default=None)
+
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name}"
+    
+    class Meta:
+        verbose_name = "Resource"
+        verbose_name_plural = "Resources"

@@ -4,12 +4,15 @@ from commons.db.model import MyModel
 from jobaid.helpers import get_prompt
 
 # Create your models here.
+def default_labels():
+    return {"Innovation Score": "Align Priority"}
 
 class JobAid(MyModel):
     JOB_TYPE_CHOICES = [
         ('job_aid', 'Job Aid'),
         ('form', 'Form'),
         ('prompt_generator', 'Prompt Generator'),
+        ('transformation_program', 'Transformation Program'),
     ]
     title = models.CharField(max_length=255, verbose_name="Title")
     description = models.TextField(verbose_name="Description")
@@ -24,9 +27,16 @@ class JobAid(MyModel):
     is_prompt_generation = models.BooleanField(default=True, verbose_name="Is Prompt Generation")
     evaluation_prompt = models.TextField(verbose_name="Evaluation Prompt", null=True, blank=True, default=get_prompt("evaluation_prompt"))
     evaluate_jobaid = models.BooleanField(default=False, verbose_name="Evaluation Jobaid")
+
+    custom_prompt = models.TextField(verbose_name="Custom Prompt", null=True, blank=True, default=None, help_text="Used for transformation programs where the prompt is dynamic based on user input")
+
+    labels = models.JSONField(verbose_name="Labels", null=True, blank=True, default=default_labels, help_text="Custom labels for the job aid, e.g. {'Innovation Score': {'label':'Align Priority', 'info': 'xyz'} }")
+    
+    session_voting_enabled = models.BooleanField(default=True, verbose_name="Session Voting Enabled", help_text="Allow users to like or dislike their session after completion")
+
     def save(self, *args, **kwargs):
         # Apply logic BEFORE saving
-        if self.job_aid_type == "form":
+        if self.job_aid_type == "form" or self.job_aid_type == 'transformation_program':
             self.is_validation = False
         super().save(*args, **kwargs)
 
@@ -43,6 +53,7 @@ class JobAidQuestion(MyModel):
         ('text', 'Text'),
         ('dropdown', 'Dropdown'),
         ('boolean', 'Boolean'),
+        ('editable', 'Editable')
     ]
     job_aid = models.ForeignKey(JobAid, on_delete=models.CASCADE, related_name='questions', verbose_name="Job Aid")
     question = models.CharField(max_length=255, verbose_name="Question")
@@ -61,6 +72,12 @@ class JobAidQuestion(MyModel):
         default=False,
         verbose_name="Allow custom input",
         help_text="Users can enter values not in predefined options"
+    )
+
+    attachment_allowed = models.BooleanField(
+        default=False,
+        verbose_name="Allow file upload",
+        help_text="Users can upload a file as an answer"
     )
 
     class Meta:
@@ -85,10 +102,17 @@ class JobAidSession(MyModel):
     report_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     qna = models.JSONField(blank=True, null=True, help_text="Q&A data for the session")
+    file_qna = models.JSONField(blank=True, null=True, help_text="Q&File data for the session")
     like_count = models.IntegerField(default=0)
     liked_by = models.TextField(blank=True, null=True, help_text="Comma-separated list of user emails who liked the session")
     client_id = models.CharField(max_length=255, blank=True, null=True, verbose_name="Client ID", help_text="Identifier for the client associated with this session")
-
+    resources = models.ManyToManyField(
+            'users.ClientResource',
+            blank=True,
+            related_name="jobaid_sessions"
+        )
+    output = models.TextField(verbose_name="Output", null=True, blank=True, default=None, help_text="Stores the output generated for transformation programs")
+    
     class Meta:
         verbose_name = "Job Aid Session"
         verbose_name_plural = "Job Aid Sessions"
