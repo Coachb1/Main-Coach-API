@@ -379,7 +379,12 @@ class JobAidViewSet(ApiViewSet,
             if client_id:
                 jobaid_sessions = jobaid_sessions.filter(client_id=client_id)
             serializer = JobAidSessionSerializer(jobaid_sessions, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+
+            data = {
+                "session_voting_enabled": jobaid.session_voting_enabled,
+                "sessions": serializer.data
+            }
+            return Response(data, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.exception(f'Error in job_aid_leaderboard: {e}')

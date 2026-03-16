@@ -28,6 +28,7 @@ class JobAidSerializer(serializers.ModelSerializer):
             "job_aid_type",
             "is_validation",
             "is_report",
+            "session_voting_enabled"
         ]
 
 
@@ -122,11 +123,19 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
                 "question_type": "other",
             }
             if q_text == "Innovation Score":
-                que_data['question'] = jobaid.labels.get("innovation_score", "Align Priority") if jobaid.labels else "Align Priority"
+                lables = jobaid.labels.get("innovation_score") if jobaid.labels  else None
+                if lables and isinstance(lables, dict):
+                    que_data['question'] = lables.get("label", "Align Priority")
+                    que_data['info'] = lables.get("info", "")
+                elif lables and isinstance(lables, str):
+                    que_data['question'] = lables
+                else:
+                    que_data['question'] = "Align Priority"
+
                 que_data['question_type'] = "innovation_score"
                 innovation_score_qna.append(que_data)
-            else:
-                normal_qna.append(que_data)
+            # else:
+            #     normal_qna.append(que_data)
 
         # ---------- RESOURCES ----------
         for resource in session_resources:

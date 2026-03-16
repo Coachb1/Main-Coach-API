@@ -30,8 +30,10 @@ class JobAid(MyModel):
 
     custom_prompt = models.TextField(verbose_name="Custom Prompt", null=True, blank=True, default=None, help_text="Used for transformation programs where the prompt is dynamic based on user input")
 
-    labels = models.JSONField(verbose_name="Labels", null=True, blank=True, default=default_labels, help_text="Custom labels for the job aid, e.g. {'Innovation Score': 'Align Priority'}")
+    labels = models.JSONField(verbose_name="Labels", null=True, blank=True, default=default_labels, help_text="Custom labels for the job aid, e.g. {'Innovation Score': {'label':'Align Priority', 'info': 'xyz'} }")
     
+    session_voting_enabled = models.BooleanField(default=True, verbose_name="Session Voting Enabled", help_text="Allow users to like or dislike their session after completion")
+
     def save(self, *args, **kwargs):
         # Apply logic BEFORE saving
         if self.job_aid_type == "form" or self.job_aid_type == 'transformation_program':
