@@ -2,10 +2,13 @@
 
 from django import forms
 from django.contrib.auth.hashers import make_password
+from commons.db.json_form_mixins import UniversalSchemaWidget
 
 
 from tenants.models import Tenant
-from users.models import ClientUserInfo, User
+from tests.forms import BUTTON_CONFIG_SCHEMA
+from users.models import ClientUserInfo, LibraryBotConfig, User
+from users.schema import ANNOUNCEMENT_SCHEMA, BOT_CONFIG_SCHEMA, COMPANY_INFO_SCHEMA, DEFAULT_FILTERS_SCHEMA, FEATURE_BOX_SCHEMA, FEATURE_BUTTON_SCHEMA
 
 class TenantForm(forms.ModelForm):
     class Meta:
@@ -41,3 +44,27 @@ class UserAdminForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+class LibraryBotConfigForm(forms.ModelForm):
+    class Meta:
+        model = LibraryBotConfig
+        fields = '__all__'
+        widgets = {
+            # 'access_password':           forms.PasswordInput(render_value=True),
+            'default_filters':           UniversalSchemaWidget(schema=DEFAULT_FILTERS_SCHEMA),
+            'bot_config':                UniversalSchemaWidget(schema=BOT_CONFIG_SCHEMA),
+            'feature_and_button_controls':      UniversalSchemaWidget(schema=FEATURE_BUTTON_SCHEMA),
+            'feature_boxs':         UniversalSchemaWidget(schema=FEATURE_BOX_SCHEMA),
+            'announcements_section':      UniversalSchemaWidget(schema=ANNOUNCEMENT_SCHEMA), 
+            'card_button_config':        UniversalSchemaWidget(schema=BUTTON_CONFIG_SCHEMA),
+        }
+
+class ClientUserInfoForm(forms.ModelForm):
+    class Meta:
+        model = ClientUserInfo
+        fields = '__all__'
+        widgets = {
+            'company_information': UniversalSchemaWidget(COMPANY_INFO_SCHEMA)
+        }
+               

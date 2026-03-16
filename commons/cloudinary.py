@@ -12,12 +12,12 @@ cloudinary.config(
 )
 
 @timeit
-def upload_image(image):
+def upload_image(image, resource_type="image"):
     """
     Upload image to cloudinary
     """
     try:
-        res = uploader.upload(image)
+        res = uploader.upload(image, resource_type=resource_type)
         return res
     except Exception as e:
         logger.error(f"Error in uploading image to cloudinary {e}")

@@ -1,12 +1,16 @@
+import json
 from django import forms
 from django.core.exceptions import ValidationError
+from commons.db.json_form_mixins import UniversalSchemaWidget
 from tests.helpers import parse_psychometric_csv
 from django.db import transaction
 from tenants.models import Tenant
 from tests.models import Psychometric, PsychometricItem
 from django.utils.translation import gettext_lazy as _
 import csv
-from .models import Course, CoursePackage, PsychometricReportSection, PsychometricReportSubsection, Test
+
+from tests.schema import ACTION_TAB_SCHEMA, BUTTON_CONFIG_SCHEMA, LIBRARY_SCHEMA, TRANSFORM_IQ_SCHEMA
+from .models import Collection, Course, CoursePackage, Module, PsychometricReportSection, PsychometricReportSubsection, Test
 from io import TextIOWrapper
 
 
@@ -220,3 +224,31 @@ class CourseAdminForm(forms.ModelForm):
     class Meta:
         model = Course
         fields = "__all__"
+
+
+class CollectionAdminForm(forms.ModelForm):
+    class Meta:
+        model = Collection
+        fields = '__all__'
+        widgets = {
+            # Attach the universal widget to the JSONField
+            'action_tab_info': UniversalSchemaWidget(schema=ACTION_TAB_SCHEMA)
+        }
+
+class CoursePackageAdminForm(forms.ModelForm):
+    class Meta:
+        model = CoursePackage
+        fields = '__all__'
+        widgets = {
+            # Replace 'config_field_name' with your actual field name
+            'page_config': UniversalSchemaWidget(schema=LIBRARY_SCHEMA)
+        }
+
+class ModuleForm(forms.ModelForm):
+    class Meta:
+        model = Module
+        fields = '__all__'
+        widgets = {
+            'transform_iq': UniversalSchemaWidget(schema=TRANSFORM_IQ_SCHEMA),
+            'card_button_config': UniversalSchemaWidget(schema=BUTTON_CONFIG_SCHEMA)
+        }
