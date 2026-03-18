@@ -1,10 +1,13 @@
 import boto3
 from botocore.config import Config
 
+from commons.gcp_service import GCPServiceAccountFile
 from commons.timeit import timeit
 from google.cloud import storage
 import os
 from pathlib import Path
+
+gcp_service_acccount = GCPServiceAccountFile()
 
 
 @timeit
@@ -32,7 +35,7 @@ def get_url(region_name, bucket, key, public_url=False):
     #     ExpiresIn=15*60
     # )
     os.chdir(f"{Path(__file__).resolve().parent}")
-    client = storage.Client.from_service_account_json(r'bucketaccess.json')
+    client = storage.Client.from_service_account_json(gcp_service_acccount.get_path())
     bucket = client.get_bucket(bucket)
     blob = bucket.blob(key)
 
