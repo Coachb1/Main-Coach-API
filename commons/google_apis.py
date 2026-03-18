@@ -2,6 +2,7 @@ from google.cloud import speech
 import os
 from pathlib import Path
 import logging
+from commons.gcp_service import GCPServiceAccountFile
 from commons.timeit import timeit
 
 import vertexai
@@ -19,11 +20,14 @@ from google.api_core.exceptions import ResourceExhausted, TooManyRequests
 from commons.notifications import send_error_notification
 from google import genai
 
+
 import json
 import requests
 
 logger = logging.getLogger(__name__)
 
+gcp_service_acccount = GCPServiceAccountFile()
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = gcp_service_acccount.get_path()
 
 def remove_garbage_characters(text):
     return text.replace("*","").replace("#","").replace(">","").replace("<","")
@@ -56,8 +60,7 @@ def speech_to_text(url):
     
     """
     try:
-        os.chdir(f"{Path(__file__).resolve().parent}")
-        client = speech.SpeechClient.from_service_account_file(r'bucketaccess.json')
+        client = speech.SpeechClient.from_service_account_file(gcp_service_acccount.get_path())
         uri = get_uri(url)
 
         audio = speech.RecognitionAudio(uri = uri)
@@ -106,8 +109,6 @@ def text_bison_compeletion(prompt,model="text-bison@001"):
     """
     max_retry = 3
     retry = 0
-    os.chdir(f"{Path(__file__).resolve().parent}")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'
 
     vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     parameters = {
@@ -153,8 +154,6 @@ def text_to_speech_google(text):
 
     """
     try:
-        os.chdir(f"{Path(__file__).resolve().parent}")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = 'bucketaccess.json'
         client = texttospeech.TextToSpeechClient()
 
         input_text = texttospeech.SynthesisInput(text=text)
@@ -186,7 +185,7 @@ def gemini_competions(prompt):
     while True:
         try:
             logger.info({"**** gemini":f"trying gemini for {retry} time"})
-            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=AIzaSyBfhB_y-hjwnqpVfVuC8ctvKy4gyiTesKo"
+            url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=AIzaSyBfhB_y-"
 
             payload = json.dumps({
             "contents": [
@@ -223,8 +222,6 @@ def gemini_competions(prompt):
 @timeit
 def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,models=["gemini-2.0-flash-001","gemini-2.0-flash-lite-001","gemini-2.0-flash-001","gemini-2.5-flash-preview-05-20"],instruction=None):
     logger.info(f"gemini_completion prompt: {prompt}, and \nmodels: {models} adn \n instruction: {instruction}")
-    os.chdir(f"{Path(__file__).resolve().parent}")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     # vertexai.init(project="summer-nucleus-397019", location="asia-south1")
     
     client = genai.Client(
@@ -300,8 +297,6 @@ def gemini_completion(prompt,max_output_tokens=8192,temperature=0.9,top_p=1,mode
 @timeit
 def gemini_chat_completion(prompt,previous_conv:list,max_output_tokens=8192,temperature=0.9,top_p=1,top_k=1,models=["gemini-2.0-flash-001","gemini-2.0-flash-lite-001","gemini-2.0-flash-001"],instructions=None,json_ouput=True):
     logger.info(f"gemini_chat_completion prompt: {prompt}, json_output: {json_ouput}and \nmodels: {models}")
-    os.chdir(f"{Path(__file__).resolve().parent}")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r'bucketaccess.json'
     
     generation_config={
         "max_output_tokens": max_output_tokens,
