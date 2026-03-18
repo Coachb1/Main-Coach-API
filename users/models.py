@@ -642,13 +642,14 @@ class ClientUserInfo(TenantAwareModel):
         help_text="Deprecated."
     )
 
-    client_logo = models.CharField(max_length=255,null=True, blank=True, default=None)
+    client_logo = models.CharField(max_length=255,null=True, blank=True, default=None, help_text="Client Logo Url")
     resources = models.ManyToManyField(
                 'ClientResource',
                 blank=True,
-                related_name="client_users"
+                related_name="client_users",
+                help_text="Resources For a client."
             )
-    company_information = models.JSONField(null=True, blank=True, default=None)
+    company_information = models.JSONField(null=True, blank=True, default=None, help_text="Company Related Info like website and all")
     
     class Meta:
         db_table = "client_user_info"

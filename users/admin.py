@@ -318,6 +318,9 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
                     "owner_id",
                     "domain_name",
                     "is_active",
+                    "company_information",
+                    "client_logo",
+
                 )
             }),
             ("👥 Membership Management", {
