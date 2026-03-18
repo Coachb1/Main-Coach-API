@@ -2,6 +2,7 @@
 import logging
 
 
+from commons.gcp_service import GCPServiceAccountFile
 from commons.timeit import timeit
 from google.cloud import storage
 import os
@@ -9,12 +10,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+gcp_service_acccount = GCPServiceAccountFile()
+
+
 @timeit
 def gcp_upload(bucket_name, source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
     try:
         os.chdir(f"{Path(__file__).resolve().parent}")
-        client = storage.Client.from_service_account_json(r'bucketaccess.json')
+        client = storage.Client.from_service_account_json(gcp_service_acccount.get_path())
         # client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(destination_blob_name)

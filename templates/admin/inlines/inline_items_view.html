@@ -1,0 +1,103 @@
+<!-- templates/admin/inlines/inline_items_view.html -->
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ inline_title }} for {{ parent_obj }}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div style="margin-bottom: 20px;">
+        <h1>📋 {{ inline_title|capfirst }} for: {{ parent_obj }}</h1>
+        <a href="{% url 'admin:'|add:opts.app_label|add:'_'|add:opts.model_name|add:'_change' parent_obj.pk %}" 
+           class="button">← Back to {{ parent_model._meta.verbose_name|capfirst }}</a>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="module filtered" style="margin-bottom: 20px;">
+        <form method="get" style="padding: 15px; background: #f8f9fa; border-radius: 5px;">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" name="search" value="{{ search }}" 
+                       placeholder="🔍 Search {{ inline_title|lower }}..." 
+                       style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <select name="per_page" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="20" {% if request.GET.per_page == "20" %}selected{% endif %}>20 per page</option>
+                    <option value="50" {% if request.GET.per_page == "50" %}selected{% endif %}>50 per page</option>
+                    <option value="100" {% if request.GET.per_page == "100" %}selected{% endif %}>100 per page</option>
+                </select>
+                <button type="submit" class="button">Search</button>
+                <a href="?" class="button">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Table -->
+    <div class="module">
+        <table style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    {% if fields %}
+                        {% for field in fields %}
+                            <th>{{ field|capfirst }}</th>
+                        {% endfor %}
+                    {% else %}
+                        {% for field in page_obj.object_list.0._meta.fields %}
+                            <th>{{ field.verbose_name|capfirst }}</th>
+                        {% endfor %}
+                    {% endif %}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in page_obj %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    {% if fields %}
+                        {% for field in fields %}
+                            <td>{{ item|getattr:field|default:"—" }}</td>
+                        {% endfor %}
+                    {% else %}
+                        {% for field in item._meta.fields %}
+                            <td>{{ field.value_from_object:item|default:"—" }}</td>
+                        {% endfor %}
+                    {% endif %}
+                    <td>
+                        {% if has_change_permission %}
+                        <a href="{% url 'admin:'|add:inline_model._meta.app_label|add:'_'|add:inline_model._meta.model_name|add:'_change' item.id %}" 
+                           class="button">Edit</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="100" style="text-align: center; padding: 20px; color: #999;">
+                        No {{ inline_title|lower }} found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination" style="margin-top: 20px; text-align: center;">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1&search={{ search }}&per_page={{ request.GET.per_page }}">« first</a>
+                <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&per_page={{ request.GET.per_page }}">previous</a>
+            {% endif %}
+
+            <span class="current">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&per_page={{ request.GET.per_page }}">next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}&search={{ search }}&per_page={{ request.GET.per_page }}">last »</a>
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

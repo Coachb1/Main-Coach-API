@@ -4,6 +4,7 @@ from django.db import transaction
 
 from apis.accounts.dtos import IdentityCreateContextDto
 from apis.accounts.dtos import UserCreateContextDto
+from coaching_conversations.helpers import create_or_assign_client_id
 from commons.timeit import timeit
 from identities.helpers import create_identity
 from tenants.models import Tenant
@@ -46,6 +47,9 @@ def create_user_account(tenant: Tenant,
             user_attribute = upsert_user_attributes(user=user,
                                                     tag=tag,
                                                     attributes=attributes)
+            
+        create_or_assign_client_id(user.get_email(),tenant)
+
 
     logger.info("created user account for tenant %s", tenant.uid)
 

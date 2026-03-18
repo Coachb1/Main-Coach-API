@@ -1,5 +1,9 @@
 from django.db import models
 
+from django.forms import ValidationError
+from django.utils import timezone
+
+from analytics.models import Event
 from tenants.models import TenantAwareModel
 from tests.choices import InteractionModeChoices, PageNameChoices, PilotTestFrequencyChoices, PilotTestPreferencesChoices, TagChoices, default_page_config
 from tests.choices import QuestionForChoices
@@ -678,7 +682,7 @@ class CoursePackage(TenantAwareModel):
     image_link = models.URLField(blank=True, null=True, default=None)
     page_config = models.JSONField(
         default=default_page_config,
-        help_text="Configuration settings for the course package pages. eg: {'show_filters': 'Industry, Function, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players, Start Up', 'show_lists': true, 'show_search': true}")
+        help_text="Configuration settings for the course package pages. eg: {'heading': 'xyz','show_filters': 'Industry, Function, Unexpected Outcomes, Implementation Complexity,  Business Outcome,Emerging Players, Start Up', 'show_lists': true, 'show_search': true}")
 
     class Meta:
         db_table = "course_package"
@@ -736,6 +740,14 @@ class Module(MyModel):
     total_likes = models.IntegerField(
             default=0, help_text="Total likes received for the module"
         )
+    card_button_config = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text='for eg: {"description": {"show": true, "label": "TransformIQ"}, "report": {"show": true, "label": "TransformIQ"}, "audio_button": {"show": true, "label": ""}}'
+    )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
+
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
@@ -806,6 +818,19 @@ class ModuleProgress(MyModel):
     def __str__(self):
         return f"{self.user_progress.user.name} - {self.module.title} ({self.status})"
 
+class ModuleClientLike(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    client = models.ForeignKey(ClientUserInfo, on_delete=models.CASCADE)
+    total_likes = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ("module", "client")
+        indexes = [
+            models.Index(fields=["module", "client"]),
+        ]
+
+    def __str__(self):
+        return f"{self.module.title} - {self.client.name}: {self.total_likes}"
 
 
 class ModuleLike(MyModel): # likes for user
@@ -872,6 +897,7 @@ class CaseMappings(MyModel):
         blank=True,
         help_text="Action on the action button for a collection"
     )
+    sticker = models.CharField(max_length=55, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         # Auto-generate action_name only if not provided
@@ -882,3 +908,116 @@ class CaseMappings(MyModel):
 
     def __str__(self):
         return f"{self.tab_name} ({self.collection.collection_name})"
+
+
+class ConceptSession(MyModel):
+    """
+    Stores the current state of a user's session for a single CaseMapping.
+    We keep `is_active` because MySQL doesn't support partial unique indexes.
+    """
+
+
+    class Status(models.TextChoices):
+        STARTED = "started", "Started"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    user = models.ForeignKey(
+        User,
+        related_name="concept_sessions",
+        on_delete=models.CASCADE
+    )
+
+    case_mapping = models.ForeignKey(
+        CaseMappings,
+        related_name="concept_sessions",
+        on_delete=models.CASCADE
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.STARTED
+    )
+
+    completion_percentage = models.FloatField(default=0)
+
+    is_active = models.BooleanField(default=True)
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    last_activity_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "concept_session"
+        verbose_name = "Concept Session"
+        verbose_name_plural = "Concept Sessions"
+        ordering = ("-started_at",)
+
+        indexes = [
+            models.Index(fields=["user", "case_mapping"]),
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["case_mapping"]),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "case_mapping", "is_active"],
+                name="unique_active_session"
+            )
+        ]
+
+    def update_progress(self, percent: float):
+        """
+        Safely update progress. If percent >= 100 mark complete.
+        """
+        percent = max(0.0, min(100.0, float(percent or 0)))
+
+        self.completion_percentage = percent
+
+        if percent >= 100:
+            self.status = self.Status.COMPLETED
+            self.ended_at = timezone.now()
+            self.is_active = False
+        else:
+            self.status = self.Status.IN_PROGRESS
+
+        self.save(
+            update_fields=[
+                "completion_percentage",
+                "status",
+                "ended_at",
+                "is_active",
+                "last_activity_at",
+            ]
+        )
+ 
+
+    def mark_completed(self):
+        """
+        Force-complete the session.
+        """
+        self.completion_percentage = 100.0
+        self.status = self.Status.COMPLETED
+        self.ended_at = timezone.now()
+        self.is_active = False
+
+        self.save(
+            update_fields=[
+                "completion_percentage",
+                "status",
+                "ended_at",
+                "is_active",
+                "last_activity_at",
+            ]
+        )
+
+    def __str__(self):
+        # safe attribute access in case user.name or case_mapping.collection is missing
+        user_name = getattr(self.user, "name", str(self.user))
+        cm = getattr(self, "case_mapping", None)
+        collection_name = getattr(getattr(cm, "collection", None), "collection_name", None)
+        tab_name = getattr(cm, "tab_name", None)
+        return f"{user_name} - {collection_name or 'Unknown Collection'} ({tab_name or 'Unknown'})"
+

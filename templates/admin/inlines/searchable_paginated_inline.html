@@ -1,0 +1,338 @@
+<!-- templates/admin/inlines/searchable_paginated_inline.html -->
+{% load i18n admin_urls static %}
+
+<div class="inline-group searchable-paginated-inline" id="{{ inline_admin_formset.formset.prefix }}-group">
+    <div class="tabular inline-related {% if forloop.last %}last-related{% endif %}">
+        {{ inline_admin_formset.formset.management_form }}
+        
+        <fieldset class="module {{ inline_admin_formset.classes }}">
+            <h2>
+                {{ inline_admin_formset.opts.verbose_name_plural|capfirst }}
+                <span class="inline-item-count" style="color: #666; font-size: 0.9em;">
+                    ({{ inline_admin_formset.formset.total_form_count }})
+                </span>
+            </h2>
+            
+            <!-- Search and Filter Controls -->
+            {% if inline_admin_formset.formset.search_fields %}
+            <div class="inline-search-controls">
+                <div class="search-box">
+                    <input type="text" 
+                           class="inline-search-input" 
+                           placeholder="🔍 Search {{ inline_admin_formset.opts.verbose_name_plural|lower }}..." 
+                           data-prefix="{{ inline_admin_formset.formset.prefix }}">
+                    <button type="button" class="button inline-search-btn" onclick="filterInlineItems('{{ inline_admin_formset.formset.prefix }}')">Search</button>
+                    <button type="button" class="button" onclick="clearInlineSearch('{{ inline_admin_formset.formset.prefix }}')">Clear</button>
+                </div>
+                <div class="inline-stats">
+                    <strong>Total:</strong> <span class="items-total">{{ inline_admin_formset.formset.total_form_count }}</span>
+                    | <strong>Showing:</strong> <span class="items-visible">{{ inline_admin_formset.formset.items_per_page }}</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <table>
+                <thead>
+                    <tr>
+                        {% for field in inline_admin_formset.fields %}
+                            {% if not field.widget.is_hidden %}
+                                <th class="column-{{ field.name }}{% if field.required %} required{% endif %}">
+                                    {{ field.label|capfirst }}
+                                    {% if field.help_text %}
+                                        <img src="{% static "admin/img/icon-unknown.svg" %}" 
+                                             class="help help-tooltip" 
+                                             title="{{ field.help_text|striptags }}"
+                                             alt="({{ field.help_text|striptags }})">
+                                    {% endif %}
+                                </th>
+                            {% endif %}
+                        {% endfor %}
+                        {% if inline_admin_formset.formset.can_delete or inline_admin_formset.has_change_permission %}
+                            <th>{% translate "Delete?" %}</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+
+                <tbody class="inline-items-tbody" data-prefix="{{ inline_admin_formset.formset.prefix }}">
+                    {% for inline_admin_form in inline_admin_formset %}
+                        {% if inline_admin_form.form.instance.pk or inline_admin_form.show_url %}
+                            <tr class="form-row {% cycle "row1" "row2" %} {% if inline_admin_form.original or inline_admin_form.show_url %}has_original{% endif %} inline-item-row"
+                                data-inline-id="{{ forloop.counter }}">
+                                
+                                {% for fieldset in inline_admin_form %}
+                                    {% for line in fieldset %}
+                                        {% for field in line %}
+                                            <td class="field-{{ field.field.name }}" 
+                                                data-field-value="{{ field.field.value|default:'' }}">
+                                                {% if field.is_readonly %}
+                                                    <p>{{ field.contents }}</p>
+                                                {% else %}
+                                                    {{ field.field.errors.as_ul }}
+                                                    {{ field.field }}
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% endfor %}
+
+                                {% if inline_admin_formset.formset.can_delete or inline_admin_formset.has_change_permission %}
+                                    <td class="delete">
+                                        {% if inline_admin_form.original %}
+                                            {{ inline_admin_form.deletion_field.field }}
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <!-- Empty forms for adding new items -->
+                    {% for inline_admin_form in inline_admin_formset %}
+                        {% if not inline_admin_form.form.instance.pk and not inline_admin_form.show_url %}
+                            <tr class="form-row empty-form {% cycle "row1" "row2" %}">
+                                {% for fieldset in inline_admin_form %}
+                                    {% for line in fieldset %}
+                                        {% for field in line %}
+                                            <td class="field-{{ field.field.name }}">
+                                                {{ field.field.errors.as_ul }}
+                                                {{ field.field }}
+                                            </td>
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% endfor %}
+                                <td class="delete">{{ inline_admin_form.deletion_field.field }}</td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination Controls -->
+            <div class="inline-pagination-controls">
+                <button type="button" class="button" onclick="showMoreInlineItems('{{ inline_admin_formset.formset.prefix }}', 10)">+ Show 10 More</button>
+                <button type="button" class="button" onclick="showAllInlineItems('{{ inline_admin_formset.formset.prefix }}')">Show All</button>
+                <button type="button" class="button" onclick="collapseInlineItems('{{ inline_admin_formset.formset.prefix }}')">Collapse</button>
+            </div>
+        </fieldset>
+    </div>
+</div>
+
+<style>
+    /* ===== LIGHT MODE ===== */
+    .inline-search-controls {
+        background: #f8f9fa;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+    }
+    
+    .search-box {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .inline-search-input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    
+    .inline-stats {
+        font-size: 12px;
+        color: #666;
+    }
+    
+    .inline-pagination-controls {
+        margin-top: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        text-align: center;
+    }
+    
+    .inline-items-tbody tr.hidden-inline-row {
+        display: none;
+    }
+    
+    .inline-items-tbody tr:hover {
+        background-color: #f5f5f5 !important;
+    }
+    
+    .inline-items-tbody td input[type="text"],
+    .inline-items-tbody td input[type="url"],
+    .inline-items-tbody td select {
+        width: 100%;
+        min-width: 150px;
+    }
+
+    /* ===== DARK MODE ===== */
+    @media (prefers-color-scheme: dark) {
+        .inline-search-controls {
+            background: #2b2b2b;
+            border-color: #444;
+        }
+        
+        .inline-search-input {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            border-color: #555;
+        }
+        
+        .inline-stats {
+            color: #aaa;
+        }
+        
+        .inline-pagination-controls {
+            background: #2b2b2b;
+        }
+        
+        .inline-items-tbody tr:hover {
+            background-color: #2b2b2b !important;
+        }
+    }
+    
+    [data-theme="dark"] .inline-search-controls,
+    body.theme-dark .inline-search-controls {
+        background: #2b2b2b;
+        border-color: #444;
+    }
+    
+    [data-theme="dark"] .inline-search-input,
+    body.theme-dark .inline-search-input {
+        background: #1e1e1e;
+        color: #e0e0e0;
+        border-color: #555;
+    }
+    
+    [data-theme="dark"] .inline-stats,
+    body.theme-dark .inline-stats {
+        color: #aaa;
+    }
+    
+    [data-theme="dark"] .inline-pagination-controls,
+    body.theme-dark .inline-pagination-controls {
+        background: #2b2b2b;
+    }
+    
+    [data-theme="dark"] .inline-items-tbody tr:hover,
+    body.theme-dark .inline-items-tbody tr:hover {
+        background-color: #2b2b2b !important;
+    }
+</style>
+
+<script>
+(function() {
+    // Store state for each inline
+    const inlineStates = {};
+    
+    function getInlineState(prefix) {
+        if (!inlineStates[prefix]) {
+            const tbody = document.querySelector(`.inline-items-tbody[data-prefix="${prefix}"]`);
+            const rows = tbody ? Array.from(tbody.querySelectorAll('.inline-item-row')) : [];
+            const itemsPerPage = parseInt('{{ inline_admin_formset.formset.items_per_page }}') || 5;
+            
+            inlineStates[prefix] = {
+                allRows: rows,
+                visibleCount: itemsPerPage,
+                totalCount: rows.length
+            };
+        }
+        return inlineStates[prefix];
+    }
+    
+    window.filterInlineItems = function(prefix) {
+        const state = getInlineState(prefix);
+        const searchInput = document.querySelector(`.inline-search-input[data-prefix="${prefix}"]`);
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        
+        let visibleCounter = 0;
+        
+        state.allRows.forEach(row => {
+            // Get all field values from the row
+            const fieldCells = row.querySelectorAll('td[data-field-value]');
+            let matches = false;
+            
+            fieldCells.forEach(cell => {
+                const value = cell.getAttribute('data-field-value').toLowerCase();
+                if (value.includes(searchTerm)) {
+                    matches = true;
+                }
+            });
+            
+            if (matches || searchTerm === '') {
+                row.classList.remove('hidden-inline-row');
+                visibleCounter++;
+            } else {
+                row.classList.add('hidden-inline-row');
+            }
+        });
+        
+        updateInlineCounts(prefix, state.totalCount, visibleCounter);
+    };
+    
+    window.clearInlineSearch = function(prefix) {
+        const searchInput = document.querySelector(`.inline-search-input[data-prefix="${prefix}"]`);
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        filterInlineItems(prefix);
+    };
+    
+    window.showMoreInlineItems = function(prefix, count) {
+        const state = getInlineState(prefix);
+        state.visibleCount += count;
+        updateInlineVisibility(prefix);
+    };
+    
+    window.showAllInlineItems = function(prefix) {
+        const state = getInlineState(prefix);
+        state.visibleCount = state.allRows.length;
+        updateInlineVisibility(prefix);
+    };
+    
+    window.collapseInlineItems = function(prefix) {
+        const state = getInlineState(prefix);
+        state.visibleCount = parseInt('{{ inline_admin_formset.formset.items_per_page }}') || 5;
+        updateInlineVisibility(prefix);
+    };
+    
+    function updateInlineVisibility(prefix) {
+        const state = getInlineState(prefix);
+        
+        state.allRows.forEach((row, index) => {
+            if (index < state.visibleCount) {
+                row.classList.remove('hidden-inline-row');
+            } else {
+                row.classList.add('hidden-inline-row');
+            }
+        });
+        
+        updateInlineCounts(prefix, state.totalCount, Math.min(state.visibleCount, state.totalCount));
+    }
+    
+    function updateInlineCounts(prefix, total, visible) {
+        const group = document.getElementById(`${prefix}-group`);
+        if (group) {
+            const totalSpan = group.querySelector('.items-total');
+            const visibleSpan = group.querySelector('.items-visible');
+            
+            if (totalSpan) totalSpan.textContent = total;
+            if (visibleSpan) visibleSpan.textContent = visible;
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Find all inline prefixes and initialize them
+        document.querySelectorAll('.inline-items-tbody[data-prefix]').forEach(tbody => {
+            const prefix = tbody.getAttribute('data-prefix');
+            const state = getInlineState(prefix);
+            updateInlineVisibility(prefix);
+        });
+    });
+})();
+</script>

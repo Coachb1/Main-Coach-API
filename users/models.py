@@ -588,7 +588,7 @@ class ClientUserInfo(TenantAwareModel):
 
     universal_bot_config = models.JSONField(
         default=dict, blank=True,
-        help_text='Controls bot visibility. Example: {"coaching": {"show": true}}'
+        help_text='Controls bot visibility. for eg: {"coaching": {"show":true,  "bot_id": "xyz"},"simulation": {"show":true}}'
     )
 
     collections = models.ManyToManyField(
@@ -642,6 +642,14 @@ class ClientUserInfo(TenantAwareModel):
         help_text="Deprecated."
     )
 
+    client_logo = models.CharField(max_length=255,null=True, blank=True, default=None)
+    resources = models.ManyToManyField(
+                'ClientResource',
+                blank=True,
+                related_name="client_users"
+            )
+    company_information = models.JSONField(null=True, blank=True, default=None)
+    
     class Meta:
         db_table = "client_user_info"
         unique_together = (("tenant_id", "client_name"),)
@@ -704,6 +712,42 @@ class LibraryBotConfig(MyModel):
         default="client_only_setup"
     )
 
+    card_button_config = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text='for eg: {"description": {"show": true, "label": "TransformIQ"}, "report": {"show": true, "label": "TransformIQ"}, "audio_button": {"show": true, "label": ""}}'
+    )
+    feature_boxs = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text='for eg: ["xyz feature", "abc feature"]'
+    )
+    announcements_section = models.JSONField(
+        default=None,
+        blank=True,
+        null=True,
+        help_text= """
+        {
+        enabled: boolean;
+        heading: {
+            text: string;
+            link: string | null;
+            link_text: string | null;
+            append_text?: string;
+        },
+        subheading: {
+            text: string;
+            link: string | null;
+            link_text: string | null;
+            append_text?: string;
+
+        }
+        }
+        """
+            )
+    access_password = models.CharField(max_length=25, default='Client@2026')
 
     class Meta:
         db_table = "library_bot_config"
@@ -742,6 +786,8 @@ class PortalPageConfig(MyModel):
         blank=True,
         default="client_only_setup"
     )
+    access_password = models.CharField(max_length=25, default='Client@2026')
+
 
     class Meta:
         db_table = "portal_page_config"
@@ -947,3 +993,20 @@ class UserMindmap(TenantAwareModel):
 
     def __str__(self):
         return f"{self.user.name} - Mindmap"
+    
+
+class ClientResource(MyModel): # NOTE: this table is being used for both client resources and jobaid session. treat it a resource table
+    name = models.CharField(max_length=125)
+    label = models.CharField(max_length=125)
+    url = models.URLField()
+    info = models.TextField(null=True, blank=True, default=None)
+
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name}"
+    
+    class Meta:
+        verbose_name = "Resource"
+        verbose_name_plural = "Resources"

@@ -98,3 +98,4 @@ google-auth==2.40.2
 drf-spectacular==0.29.0
 drf-spectacular-sidecar==2026.1.1
 setuptools<=81
+ftfy==6.3.1

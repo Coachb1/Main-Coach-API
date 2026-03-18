@@ -1,18 +1,49 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils.html import format_html
 
+from django.shortcuts import redirect
+from jobaid.form import BulkResourceActionForm, JobAidForm
 from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 # Register your models here.
+from django.contrib.admin import SimpleListFilter
+from users.models import ClientUserInfo
+
+
+class ClientFilter(SimpleListFilter):
+    title = "Client"
+    parameter_name = "client"
+
+    def lookups(self, request, model_admin):
+
+        # Get unique client_ids used in sessions
+        client_ids = (
+            model_admin.model.objects
+            .exclude(client_id__isnull=True)
+            .exclude(client_id__exact="")
+            .values_list("client_id", flat=True)
+            .distinct()
+        )
+
+        clients = ClientUserInfo.objects.filter(uid__in=client_ids)
+
+        return [(c.uid, f"{c.client_name} ({c.uid})") for c in clients]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(client_id=self.value())
+        return queryset
 
 class JobAidQuestionInline(admin.TabularInline):
     model = JobAidQuestion
     extra = 0
-    fields = ("question","validation_prompt", "question_type", "description", "dropdowns", "section")
+    fields = ("question","validation_prompt", "question_type", "description", "dropdowns", "section",  "is_multi_select", "allow_custom_text", "attachment_allowed")
     show_change_link = True
 
 
 @admin.register(JobAid)
 class JobAidAdmin(admin.ModelAdmin):
+    form = JobAidForm
     list_display = ("title", "description", "validation_prompt_short", "report_generation_prompt_short", 'evaluation_prompt', "report_header", "report_footer")
     search_fields = ("title", "description")
     inlines = [JobAidQuestionInline]
@@ -28,14 +59,174 @@ class JobAidAdmin(admin.ModelAdmin):
 
 @admin.register(JobAidQuestion)
 class JobAidQuestionAdmin(admin.ModelAdmin):
-    list_display = ("job_aid", "question", "question_type", "description", "dropdowns", "section")
+    list_display = ("job_aid", "question", "question_type", "description", "dropdowns", "section",  "is_multi_select", "allow_custom_text")
     list_filter = ("question_type", "job_aid")
     search_fields = ("question", "description", "dropdowns")
 
 
 @admin.register(JobAidSession)
 class JobAidSessionAdmin(admin.ModelAdmin):
-    list_display = ("job_aid", "email", "full_name", "status", "created_at", "report_url")
-    list_filter = ("status", "job_aid", "created_at")
-    search_fields = ("email", "full_name")
-    readonly_fields = ("created_at", "generated_report_data")
+
+    list_display = (
+        "job_aid",
+        "email",
+        "full_name",
+        "status_badge",
+        "resource_count",
+        "likes",
+        "client_id",
+        "report_link",
+        "created_at",
+    )
+
+    list_select_related = ("job_aid",)
+
+    list_filter = (
+        "status",
+        ClientFilter,
+        "job_aid",
+        "created_at",
+    )
+
+    search_fields = (
+        "email",
+        "full_name",
+        "job_aid__title",
+        "resources__name",
+        "client_id",
+    )
+
+    readonly_fields = (
+        "created_at",
+        "generated_report_data",
+    )
+
+    filter_horizontal = ("resources",)
+
+    date_hierarchy = "created_at"
+
+    actions = [
+        "bulk_assign_resources_action",
+        "bulk_deassign_resources_action",
+    ]
+
+    # ---------------------------------------------------------
+    # Status Badge (visual)
+    # ---------------------------------------------------------
+
+    @admin.display(description="Status")
+    def status_badge(self, obj):
+
+        colors = {
+            "completed": "#28a745",
+            "in_progress": "#ffc107",
+            "cancelled": "#dc3545",
+        }
+
+        return format_html(
+            '<span style="padding:3px 8px;border-radius:6px;background:{};color:white;font-weight:600;">{}</span>',
+            colors.get(obj.status, "#6c757d"),
+            obj.get_status_display(),
+        )
+
+    # ---------------------------------------------------------
+    # Resource Count
+    # ---------------------------------------------------------
+
+    @admin.display(description="# Resources")
+    def resource_count(self, obj):
+        count = obj.resources.count()
+
+        return format_html(
+            '<span style="font-weight:600;color:{};">{}</span>',
+            "#28a745" if count else "#dc3545",
+            count,
+        )
+
+    # ---------------------------------------------------------
+    # Likes
+    # ---------------------------------------------------------
+
+    @admin.display(description="👍 Likes")
+    def likes(self, obj):
+        return obj.like_count
+
+    # ---------------------------------------------------------
+    # Report Link
+    # ---------------------------------------------------------
+
+    @admin.display(description="Report")
+    def report_link(self, obj):
+        if obj.report_url:
+            return format_html(
+                '<a href="{}" target="_blank" style="color:#0d6efd;">View</a>',
+                obj.report_url,
+            )
+        return "-"
+
+    # ------------------------------------------------------------------ #
+    #  Bulk actions — redirect to an intermediate confirmation page        #
+    # ------------------------------------------------------------------ #
+
+    def _bulk_resource_page(self, request, queryset, action_type):
+        """
+        Shared logic for both bulk-assign and bulk-deassign actions.
+        On GET (first click): renders a form to pick resources.
+        On POST (form submit): applies the changes.
+        """
+        from django.shortcuts import render
+        from django.urls import reverse
+
+        session_ids = list(queryset.values_list("id", flat=True))
+
+        if "apply" in request.POST:
+            form = BulkResourceActionForm(request.POST)
+            if form.is_valid():
+                resources = form.cleaned_data["resources"]
+                sessions = JobAidSession.objects.filter(id__in=session_ids)
+                count = sessions.count()
+                for session in sessions:
+                    if action_type == "assign":
+                        session.resources.add(*resources)
+                    else:
+                        session.resources.remove(*resources)
+                verb = "assigned to" if action_type == "assign" else "removed from"
+                self.message_user(
+                    request,
+                    f"{resources.count()} resource(s) {verb} {count} session(s).",
+                    messages.SUCCESS,
+                )
+                # previous page
+                return redirect(request.get_full_path())
+                     
+        else:
+            form = BulkResourceActionForm(initial={"action_type": action_type})
+
+        sessions = []
+        for obj in queryset:
+            sessions.append({
+                'full_name': obj.full_name,
+                'email': obj.email,
+                'status': obj.status,
+                'resources': list(obj.resources.all()),  # ← evaluate queryset here
+            })
+        return render(
+            request,
+            "admin/jobaid/bulk_resource_action.html",  # template below
+            {
+                "title": f"Bulk {'Assign' if action_type == 'assign' else 'Deassign'} Resources",
+                "form": form,
+                "sessions": sessions,
+                "session_ids": session_ids,
+                "action_type": action_type,
+                "opts": self.model._meta,
+            },
+        )
+
+    @admin.action(description="📎 Bulk assign/deassign resources to selected sessions")
+    def bulk_assign_resources_action(self, request, queryset):
+        return self._bulk_resource_page(request, queryset, "assign")
+
+    @admin.action(description="❌ Bulk deassign resources from selected sessions")
+    def bulk_deassign_resources_action(self, request, queryset):
+        return self._bulk_resource_page(request, queryset, "deassign")

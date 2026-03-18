@@ -1,0 +1,256 @@
+{% extends "analytics/admin_base.html" %}
+{% load static %}
+
+{% block page_title %}{{ feature }}{% endblock %}
+{% block nav_events %}active{% endblock %}
+
+
+{% block analytics_content %}
+
+<div class="page">
+
+<!-- Header -->
+
+<div class="page-header">
+
+<div style="display:flex;gap:10px;align-items:flex-start;">
+
+<a class="back-btn"
+href="{% url 'admin:analytics-dashboard' %}?days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}">
+←
+</a>
+
+<div>
+
+<div class="page-title-row">
+<h1 class="page-title">{{ feature }}</h1>
+<span class="tag">Feature</span>
+</div>
+
+<p class="page-sub">
+{% if selected_client %}
+{{ selected_client.client_name }}
+{% else %}
+All clients
+{% endif %}
+· Last {{ selected_days }} days
+</p>
+
+</div>
+</div>
+
+<a id="exportBtn" class="btn-dark">
+Export CSV
+</a>
+
+</div>
+
+<!-- Filters -->
+
+<div class="filter-card">
+
+<form method="get" id="filterForm">
+
+<div class="filter-row">
+
+<div class="filter-group">
+<label class="filter-label">Date Range</label>
+<select name="days" class="filter-select" onchange="this.form.submit()">
+<option value="7"  {% if selected_days == 7 %}selected{% endif %}>Last 7 days</option>
+<option value="14" {% if selected_days == 14 %}selected{% endif %}>Last 14 days</option>
+<option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+<option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 days</option>
+</select>
+</div>
+
+<div class="filter-group">
+<label class="filter-label">Client</label>
+<select name="client_id" class="filter-select" onchange="this.form.submit()">
+<option value="">All clients</option>
+{% for c in clients %}
+<option value="{{ c.uid }}" {% if selected_client and selected_client.uid == c.uid %}selected{% endif %}>
+{{ c.client_name }}
+</option>
+{% endfor %}
+</select>
+</div>
+
+</div>
+
+</form>
+
+</div>
+
+<!-- KPI -->
+
+<div class="kpi-grid">
+
+<div class="kpi-card">
+<p class="kpi-label">Total Events</p>
+<p class="kpi-value">{{ total_events }}</p>
+</div>
+
+<div class="kpi-card">
+<p class="kpi-label">Unique Users</p>
+<p class="kpi-value">{{ users|length }}</p>
+</div>
+
+<div class="kpi-card">
+<p class="kpi-label">Avg Events / User</p>
+
+{% if users|length > 0 %}
+<p class="kpi-value">
+{% widthratio total_events users|length 1 %}
+</p>
+{% else %}
+<p class="kpi-value">—</p>
+{% endif %}
+
+</div>
+
+</div>
+
+<!-- Chart -->
+
+<div class="chart-card">
+
+<div class="chart-header">
+<span class="chart-title">Daily Usage</span>
+<span class="chart-meta">Events / day</span>
+</div>
+
+<canvas id="dailyChart" height="120"></canvas>
+
+</div>
+
+<!-- Table -->
+
+<div class="table-card">
+
+<div class="table-header">
+<span class="table-title">User Breakdown</span>
+<span class="stat-num">{{ users|length }} users</span>
+</div>
+
+<table class="data-table">
+
+<thead>
+<tr>
+<th>User</th>
+<th class="right">Events</th>
+<th>Share</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% with max_user_total=users.0.total %}
+
+{% for u in users %}
+
+<tr>
+
+<td>{{ u.email }}</td>
+
+<td class="right stat-num">
+{{ u.total }}
+</td>
+
+<td>
+
+{% if max_user_total %}
+
+<div class="bar-track">
+<div class="bar-fill pct-bar"
+data-w="{% widthratio u.total max_user_total 100 %}">
+</div>
+</div>
+
+{% endif %}
+
+</td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+<td colspan="3" style="text-align:center;padding:40px;color:#94A3B8;">
+No user data
+</td>
+</tr>
+
+{% endfor %}
+
+{% endwith %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+{{ daily_usage|json_script:"daily-data" }}
+
+<script>
+
+(function(){
+
+const BLUE="rgba(59,130,246,1)";
+const BLUE_SOFT="rgba(59,130,246,0.12)";
+const SLATE="#94A3B8";
+
+const dailyData=JSON.parse(document.getElementById("daily-data").textContent);
+
+new Chart(document.getElementById("dailyChart"),{
+type:"line",
+data:{
+labels:dailyData.map(d=>d.day),
+datasets:[{
+data:dailyData.map(d=>d.total),
+borderColor:BLUE,
+borderWidth:2,
+pointBackgroundColor:BLUE,
+pointRadius:dailyData.length>30?0:3,
+tension:0.35,
+fill:true,
+backgroundColor:BLUE_SOFT
+}]
+},
+options:{
+plugins:{
+legend:{display:false},
+tooltip:{
+callbacks:{
+label:ctx=>` ${ctx.parsed.y.toLocaleString()} events`
+}
+}
+},
+scales:{
+x:{
+grid:{display:false},
+ticks:{color:SLATE,font:{family:"DM Mono",size:11}}
+},
+y:{
+grid:{color:"rgba(0,0,0,0.04)"},
+ticks:{color:SLATE,font:{family:"DM Mono",size:11}},
+beginAtZero:true
+}
+}
+}
+});
+
+document.querySelectorAll(".pct-bar").forEach(el=>{
+el.style.width=el.dataset.w+"%";
+});
+
+document.getElementById("exportBtn").href=
+"{% url 'admin:analytics-export-csv' %}?feature={{ feature }}&days={{ selected_days }}{% if selected_client %}&client_id={{ selected_client.uid }}{% endif %}";
+
+})();
+
+</script>
+
+{% endblock %}

@@ -48,27 +48,21 @@ class TenantFilter(admin.SimpleListFilter):
 
 # Base admin class for Tenant-aware models
 class TenantAwareModelAdmin(admin.ModelAdmin):
+
     def __init__(self, model, admin_site):
         super().__init__(model, admin_site)
-        # Append tenant_id to list_filter only if it doesn't exist already
         self.list_filter = (TenantFilter,) + getattr(self, 'list_filter', ())
-    
 
     def get_form(self, request, obj=None, **kwargs):
-        # Check if the model has the 'tenant_id' field
+        form = super().get_form(request, obj, **kwargs)
+
         if 'tenant_id' in [f.name for f in self.model._meta.fields]:
-            # Dynamically create the form class with the correct Meta model
-            class DynamicTenantAwareForm(TenantAwareAdminForm):
-                class Meta(TenantAwareAdminForm.Meta):
-                    model = self.model
+            tenant_choices = [(None, "Select Tenant")] + Tenant.get_tenant_choices()
 
-            # Return the dynamically created form
-            kwargs['form'] = DynamicTenantAwareForm
-            # if kwargs.get('list_filter'):
-            #     kwargs['list_filter'] = (TenantFilter,) + getattr(self, 'list_filter', ())
-            # if 'tenant_id' not in getattr(self, 'list_display', () and not kwargs.get('list_display')):
-            #     kwargs['list_display'] = getattr(self, 'list_display', ()) + ('tenant_id',)
+            if 'tenant_id' in form.base_fields:
+                form.base_fields['tenant_id'] = forms.ChoiceField(
+                    choices=tenant_choices,
+                    required=False
+                )
 
-        print(f"kwargs: {kwargs}")
-        
-        return super().get_form(request, obj, **kwargs)
+        return form

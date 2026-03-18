@@ -4,7 +4,7 @@ from django.dispatch import receiver
 from commons.db.utils import AdminChangePreviewMixin, render_scrollable_text
 from identities.models import Identity
 from tenants.models import Tenant
-from .models import (BotAttribute, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
+from .models import (BotAttribute, ClientResource, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
                  ,User,UserAttribute, CoachRecommendationsForUser, ReportConfig, SnippetAccessCode, AccessCodeLog, UserMindmap)
 import json
 from utilities.models import DirectoryPageInfo, BotQnA
@@ -20,7 +20,7 @@ from django.urls import path
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.contrib import admin, messages
-from .forms import TenantForm, ClientForm, UserAdminForm, UserForm
+from .forms import ClientUserInfoForm, LibraryBotConfigForm, TenantForm, ClientForm, UserAdminForm, UserForm
 from django.db.models import Q
 
 class CoachCoacheeMentorMenteeProfileAdmin(TenantAwareModelAdmin):
@@ -82,19 +82,16 @@ class CoachRecommendationsAdmin(TenantAwareModelAdmin):
 # ============================================================================
 class LibraryBotConfigInline(admin.StackedInline):
     model = LibraryBotConfig
-    extra = 0
-    can_delete = True
+    form = LibraryBotConfigForm
+    extra = 1
+    can_delete = False
     show_change_link = True
 
     fieldsets = (
         ("📚 Core Library Configuration", {
             "description": "Controls feature visibility and default behavior of the Library Bot.",
-            "fields": (
-                "bot_config",
-                "show_certification_badge",
-                "default_filters",
-                "feature_and_button_controls",
-            ),
+            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls", "announcements_section", "feature_boxs", "card_button_config"),
+
         }),
         ("🏆 Leaderboard Protection", {
             "fields": (
@@ -115,7 +112,7 @@ class LibraryBotConfigInline(admin.StackedInline):
             ),
         }),
         ("Login Settings", {
-            "fields": ("login_view", "login_dashboard")
+            "fields": ("login_view", "login_dashboard", "access_password")
         }),
     )
 
@@ -148,6 +145,28 @@ class PortalPageConfigInline(admin.StackedInline):
         }),
     )
 
+@admin.register(ClientResource)
+class ClientResourceAdmin(admin.ModelAdmin):
+    list_per_page = 10
+    list_display = ("name", "label", "clients", "url", "info")
+    search_fields = ("name", "url", "label")
+    list_editable = ("url", "label", "info")
+    ordering = ("-id",)
+    fieldsets  = (
+        ("Resource Basic", {
+            "fields": ("uid", "name")
+        }),
+        ("Resource Details", {
+            "fields": ("label", "url", "info")
+        }),
+    )
+
+    def clients(self, obj):
+        return ", ".join(
+            client.client_name for client in obj.client_users.all()
+        )
+
+    clients.short_description = "Clients"
 
 # ============================================================================
 # 🔹 ClientUserInfo Admin
@@ -165,6 +184,7 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
     - Simulation limits
     - Library & coaching access
     """
+    form = ClientUserInfoForm
 
     change_list_template = "admin/clientuserinfo/change_list.html"
     list_per_page = 20

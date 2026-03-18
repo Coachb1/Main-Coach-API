@@ -5,10 +5,13 @@ from rest_framework.response import Response
 from apis.web_auth.serializers import LoginSerializer
 from commons.viewset import ApiViewSet
 from tenants.helpers import tenant_from_subdomain_prefix
-from users.helpers import login_user, logout_user
+from users.helpers import login_user, logout_user, update_user_account
 from apis.frontend_api.serializers import FrontendAccessTokenSerializer
+from users.models import User
 from web_auth.helpers import get_new_access_token
+import logging
 
+logger = logging.getLogger(__name__)
 
 class WebAuthViewSet(ApiViewSet):
     """
@@ -42,6 +45,7 @@ class WebAuthViewSet(ApiViewSet):
         subdomain_prefix = serializer.validated_data["subdomain_prefix"]
         identity_context = serializer.validated_data["identity_context"]
         password = serializer.validated_data["password"]
+        client_id = serializer.validated_data.get("client_id")
 
         identity_type = identity_context["identity_type"]
         identity_value = identity_context["value"]
@@ -50,7 +54,8 @@ class WebAuthViewSet(ApiViewSet):
             tenant=tenant_from_subdomain_prefix(subdomain_prefix),
             identity_type=identity_type,
             identity_value=identity_value,
-            password=password
+            password=password,
+            client_id=client_id
         )
 
         return Response(data=tokens, status=status.HTTP_200_OK)
@@ -98,3 +103,18 @@ class WebAuthViewSet(ApiViewSet):
         data = {'access_token': access_token}
 
         return Response(data=data, status=status.HTTP_200_OK)
+
+    @action(methods=["POST"], detail=False, url_path="reset-password")
+    def reset_password_view(self, request, *args, **kwargs):
+        user = request.auth_user
+        if not user:
+            return Response({"error": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        data = {}
+        if request.data.get('password'):
+            data['password'] = request.data.get('password')
+        if request.data.get('name'):
+            data['name'] = request.data.get('name')
+
+        update_user_account(user.tenant_id, user.uid, data)
+        return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block page_title %}Analytics{% endblock %} · Analytics</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="https://unpkg.com/tailwindcss@3.4.1/dist/tailwind.min.css">
+
+
+  <!-- Chart.js 4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+           background: #F1F5F9; color: #1E293B; }
+
+    /* ── Layout shell ── */
+    .shell        { display: flex; min-height: 100vh; }
+    .main-content { flex: 1; margin-left: 224px; overflow: auto; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      width: 224px; height: 100%;
+      background: #060D1F;            /* navy-950 — hard-coded, no Tailwind dep */
+      display: flex; flex-direction: column;
+      z-index: 30; user-select: none;
+    }
+    .sidebar-brand {
+      padding: 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .sidebar-brand .brand-name {
+      color: #fff; font-weight: 600; font-size: 14px; letter-spacing: 0.02em;
+    }
+    .sidebar-brand .brand-ver {
+      margin-left: 6px; font-size: 11px; color: #64748B; font-family: monospace;
+    }
+    .sidebar-nav {
+      flex: 1; overflow-y: auto; padding: 16px 12px;
+    }
+    .sidebar-nav-section {
+      padding: 4px 8px 8px;
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: #475569;
+    }
+    .sidebar-nav-section + .sidebar-nav-section,
+    .nav-link + .sidebar-nav-section { margin-top: 12px; }
+
+    .nav-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px;
+      font-size: 14px; color: #94A3B8;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-link:hover  { background: rgba(255,255,255,0.05); color: #E2E8F0; }
+    .nav-link.active { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-link svg    { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 8px 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* ── Typography helpers (mirrors Tailwind classes) ── */
+    .stat-num { font-family: "DM Mono", ui-monospace, monospace; }
+
+    /* ── Filter pill ── */
+    .filter-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #EFF6FF; color: #1D4ED8;
+      border: 1px solid #BFDBFE; border-radius: 9999px;
+      padding: 2px 10px 2px 12px;
+      font-size: 12px; font-weight: 500;
+    }
+    .filter-pill button {
+      display: flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #BFDBFE; color: #1D4ED8;
+      font-size: 10px; font-weight: 700;
+      border: none; cursor: pointer; transition: background 0.1s;
+    }
+    .filter-pill button:hover { background: #93C5FD; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* ── Filter label (replaces text-[11px] JIT class) ── */
+    .filter-label {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: #94A3B8;
+      display: block; margin-bottom: 4px;
+    }
+  </style>
+
+  <style>
+
+/* Page */
+.page { padding:32px; max-width:1200px; margin:0 auto; }
+.page > * + * { margin-top:24px; }
+
+/* Header */
+
+.page-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.page-title{
+  font-size:24px;
+  font-weight:600;
+  letter-spacing:-0.02em;
+  color:#0F172A;
+}
+
+.page-sub{
+  font-size:14px;
+  color:#64748B;
+  margin-top:2px;
+}
+
+.page-title-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+/* Tag */
+
+.tag{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 8px;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:600;
+  background:#EFF6FF;
+  color:#1D4ED8;
+  border:1px solid #DBEAFE;
+}
+
+/* Buttons */
+
+.btn-dark{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 16px;
+  border-radius:8px;
+  background:#0F172A;
+  color:#fff;
+  font-size:14px;
+  font-weight:500;
+  text-decoration:none;
+  border:none;
+  transition:background .15s;
+}
+
+.btn-dark:hover{ background:#1E293B; }
+
+.btn-dark svg{
+  width:16px;
+  height:16px;
+}
+
+/* Back */
+
+.back-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:6px;
+  border:1px solid #E2E8F0;
+  color:#64748B;
+  text-decoration:none;
+}
+
+.back-btn:hover{
+  background:#F8FAFC;
+  color:#0F172A;
+}
+
+/* Filters */
+
+.filter-card{
+  background:#fff;
+  border-radius:16px;
+  border:1px solid #E2E8F0;
+  padding:16px 20px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06);
+}
+
+.filter-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  align-items:flex-end;
+}
+
+.filter-group{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.filter-label{
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#94A3B8;
+}
+
+.filter-select{
+  border:1px solid #E2E8F0;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:14px;
+  background:#fff;
+  color:#1E293B;
+}
+
+/* KPI */
+
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+
+@media (max-width:768px){
+  .kpi-grid{ grid-template-columns:1fr; }
+}
+
+.kpi-card{
+  background:#fff;
+  border-radius:16px;
+  border:1px solid #E2E8F0;
+  padding:20px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+
+.kpi-label{
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#94A3B8;
+}
+
+.kpi-value{
+  font-family:"DM Mono", monospace;
+  font-size:32px;
+  font-weight:500;
+  color:#0F172A;
+  margin-top:8px;
+}
+
+/* Chart */
+
+.chart-card{
+  background:#fff;
+  border-radius:16px;
+  border:1px solid #E2E8F0;
+  padding:24px;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+
+.chart-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:20px;
+}
+
+.chart-title{
+  font-size:15px;
+  font-weight:600;
+  color:#1E293B;
+}
+
+.chart-meta{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#94A3B8;
+}
+
+/* Table */
+
+.table-card{
+  background:#fff;
+  border-radius:16px;
+  border:1px solid #E2E8F0;
+  overflow:hidden;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+
+.table-header{
+  padding:16px 24px;
+  border-bottom:1px solid #F1F5F9;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.table-title{
+  font-size:15px;
+  font-weight:600;
+  color:#1E293B;
+}
+
+.data-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+}
+
+.data-table thead tr{
+  background:#F8FAFC;
+}
+
+.data-table th{
+  padding:10px 24px;
+  text-align:left;
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#94A3B8;
+}
+
+.data-table th.right{ text-align:right; }
+
+.data-table td{
+  padding:14px 24px;
+}
+
+.data-table td.right{ text-align:right; }
+
+.data-table tbody tr{
+  border-top:1px solid #F1F5F9;
+}
+
+.data-table tbody tr:hover{
+  background:#F8FAFC;
+}
+
+/* Progress */
+
+.bar-track{
+  height:6px;
+  background:#F1F5F9;
+  border-radius:9999px;
+  overflow:hidden;
+}
+
+.bar-fill{
+  height:100%;
+  background:#3B82F6;
+  border-radius:9999px;
+}
+
+/* Numbers */
+
+.stat-num{
+  font-family:"DM Mono", monospace;
+}
+
+</style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <div class="sidebar-brand">
+      <span class="brand-name">Analytics</span>
+      <span class="brand-ver">v2</span>
+    </div>
+
+    <nav class="sidebar-nav">
+
+      <p class="sidebar-nav-section">Events</p>
+
+      <a href="{% url 'admin:analytics-dashboard' %}"
+         class="nav-link {% block nav_events %}{% endblock %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59"/>
+        </svg>
+        Click Events
+      </a>
+
+      <p class="sidebar-nav-section">Concepts</p>
+
+      <a href="{% url 'admin:analytics-concept-sessions' %}"
+         class="nav-link {% block nav_concepts %}{% endblock %}">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 3.741-1.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5"/>
+        </svg>
+        User Sessions
+      </a>
+
+      <p class="sidebar-nav-section">Export</p>
+
+      <a href="{% url 'admin:analytics-export-csv' %}" class="nav-link">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        Export Events CSV
+      </a>
+
+      <a href="{% url 'admin:analytics-concept-sessions-export' %}" class="nav-link">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        Export Sessions CSV
+      </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="/custom-admin/" class="nav-link" style="font-size: 12px; color: #64748B;">
+        <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/>
+        </svg>
+        Django Admin
+      </a>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+    {% block analytics_content %}{% endblock %}
+  </main>
+
+</div>
+</body>
+</html>
