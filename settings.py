@@ -153,12 +153,9 @@ USE_S3 = os.getenv('USE_S3') == 'TRUE'
 
 if USE_S3:
     # aws settings
-    # AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-    AWS_ACCESS_KEY_ID = "AKIA3QTJDBO2PFMLYCQA"
-    # AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-    AWS_SECRET_ACCESS_KEY = "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"
-    # AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
-    AWS_STORAGE_BUCKET_NAME = "coachbots-static-files"
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
@@ -237,15 +234,6 @@ BACKEND = os.getenv("BACKEND") if ENV != 'local' else "http://localhost:8001"
 CSRF_TRUSTED_ORIGINS = ['https://coach-api-ovh.coachbots.com','https://coach-api-prod-ovh.coachbots.com','https://coach-api-gke-dev.coachbots.com','https://coach-api-gke-prod.coachbots.com']
 
 
-
-# CACHE_HOST='localhost'
-# CACHE_PORT=11211
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-#         'LOCATION': f'{CACHE_HOST}:{CACHE_PORT}',
-#     }
-# }
 
 
 if ENV != 'local':
