@@ -85,6 +85,36 @@ class EventViewSet(viewsets.GenericViewSet):
 
 
 
-
-
+DOCUMENTATION_LINKS = {
+    "AIADOPTS": [
+        {
+            "title": "AI Adopts Doc",
+            "url": "/api/v1/ai-adopts-doc",
+            "description": "Ai adopts",
+            "updated_at": "2026-03-20",
+            "is_pinned": True,
+            "is_external": False
+        }
+    ],
     
+}
+
+# views.py
+def docs_page(request):
+    grouped_docs = DOCUMENTATION_LINKS
+
+    pinned_docs = [
+        doc
+        for docs in DOCUMENTATION_LINKS.values()
+        for doc in docs
+        if doc.get("is_pinned")
+    ]
+
+    return render(request, "admin/docs.html", {
+        "grouped_docs": grouped_docs,
+        "pinned_docs": pinned_docs,
+    })
+
+
+def ai_adopts_doc(request):
+    return render(request, "docs/aiadopts.html")
