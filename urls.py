@@ -5,6 +5,8 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 
+from apis.analytics.view import docs_page
+
 
 ok = JsonResponse({"ok": True})
 
@@ -15,6 +17,7 @@ urlpatterns = [
     path("api/", include("apis.urls")),
     path('custom-admin/', admin.site.urls),
     path('admin/clearcache/', include('clearcache.urls')),
+    path("docs/", docs_page, name="docs")
 
     
 ]
