@@ -1182,7 +1182,6 @@
   <h3>CoursePackage</h3>
   <p>Client-facing bundle of courses. This is what users see in the Library UI. One per client per package title.</p>
   <div class="field-grid">
-    <div class="field-row"><span class="field-key">client</span><span class="field-type-badge">FK → ClientUserInfo</span><span class="field-desc">Client owning this package</span></div>
     <div class="field-row"><span class="field-key">title</span><span class="field-type-badge">CharField</span><span class="field-desc">Package title (unique per client)</span></div>
     <div class="field-row"><span class="field-key">courses</span><span class="field-type-badge">M2M → Course</span><span class="field-desc">Courses included in this package</span></div>
     <div class="field-row"><span class="field-key">job_aid</span><span class="field-type-badge">FK → JobAid</span><span class="field-desc">Optional JobAid linked for Purpose tab</span></div>
@@ -1196,11 +1195,16 @@
     <div class="field-row"><span class="field-key">title</span><span class="field-type-badge">CharField</span><span class="field-desc">Module title</span></div>
     <div class="field-row"><span class="field-key">chapter_type</span><span class="field-type-badge">Choice</span><span class="field-desc">ASSESSMENT | VIDEO | TEXT | CHATBOT | IMAGE | BOOK</span></div>
     <div class="field-row"><span class="field-key">audio_link</span><span class="field-type-badge">URLField</span><span class="field-desc">Audio content URL</span></div>
+    <div class="field-row"><span class="field-key">image_link</span><span class="field-type-badge">URLField</span><span class="field-desc">Image content URL</span></div>
+    <div class="field-row"><span class="field-key">embed_link</span><span class="field-type-badge">URLField</span><span class="field-desc">Embed content URL</span></div>
     <div class="field-row"><span class="field-key">business_outcome</span><span class="field-type-badge">CharField</span><span class="field-desc">Business relevance mapping</span></div>
+    <div class="field-row"><span class="field-key">unexpected_outcome</span><span class="field-type-badge">CharField</span><span class="field-desc">Unexpected Outcome relevance mapping</span></div>
+    <div class="field-row"><span class="field-key">function</span><span class="field-type-badge">CharField</span><span class="field-desc">Function relevance mapping</span></div>
     <div class="field-row"><span class="field-key">key_words</span><span class="field-type-badge">TextField</span><span class="field-desc">Search optimization keywords</span></div>
     <div class="field-row"><span class="field-key">transform_iq</span><span class="field-type-badge">JSONField</span><span class="field-desc">Transform IQ data</span></div>
     <div class="field-row"><span class="field-key">implementation_complexity</span><span class="field-type-badge">CharField</span><span class="field-desc">Implementation difficulty signal</span></div>
     <div class="field-row"><span class="field-key">startup</span><span class="field-type-badge">BooleanField</span><span class="field-desc">Is startup company flag</span></div>
+    <div class="field-row"><span class="field-key">emerging_player</span><span class="field-type-badge">BooleanField</span><span class="field-desc">Is Latest Company flag</span></div>
     <div class="field-row"><span class="field-key">card_button_config</span><span class="field-type-badge">JSONField</span><span class="field-desc">Card button display settings</span></div>
   </div>
 
@@ -1226,6 +1230,7 @@
     <div class="field-row"><span class="field-key">evaluate_jobaid</span><span class="field-type-badge">Boolean</span><span class="field-desc">Enables evaluation scoring</span></div>
     <div class="field-row"><span class="field-key">validation_prompt</span><span class="field-type-badge">TextField</span><span class="field-desc">AI prompt for answer validation</span></div>
     <div class="field-row"><span class="field-key">report_generation_prompt</span><span class="field-type-badge">TextField</span><span class="field-desc">AI prompt for final report</span></div>
+    <div class="field-row"><span class="field-key">labels</span><span class="field-type-badge">JSONField</span><span class="field-desc">Labels for the job aid Report Inovation Score</span></div>
     <div class="field-row"><span class="field-key">session_voting_enabled</span><span class="field-type-badge">Boolean</span><span class="field-desc">Enable session voting in IdeaBoard</span></div>
   </div>
   <div class="note"><strong>📌 Logic</strong>: If job_aid_type = "form" → validation is disabled automatically.</div>
@@ -1303,7 +1308,7 @@
 ├── CoursePackage           → What content bundle the client sees
 │   └── Course → Module     → Individual learning units (books, audio, tests)
 │
-├── Collection + CaseMappings → Concepts tab content (PDFs, iframes)
+├── Collection + CaseMappings → Concepts tab content (PDFs, iframes, job aids, system)
 │
 ├── JobAid + JobAidQuestion → Purpose tab form definition
 │
@@ -1323,6 +1328,7 @@
     <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>Link a LibraryBotConfig</strong><p>Create or assign a <code>LibraryBotConfig</code> record. This is what gates every UI feature. Without it, the Library Bot loads with all features OFF.</p></div></div>
     <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>Link a CoursePackage</strong><p>Assign the content bundle for this client. The package controls which courses and modules they can access.</p></div></div>
     <div class="flow-step"><div class="flow-num">5</div><div class="flow-body"><strong>Assign Collections (optional)</strong><p>Add curated concept collections for the Concepts tab. Without these, the Concepts section will be empty.</p></div></div>
+    <div class="flow-step"><div class="flow-num">6</div><div class="flow-body"><strong>Resources (optional)</strong><p>Add curated resources for the Resources tab. Without these, the Resources section will be empty.</p></div></div>
   </div>
 
   <h3>Adding & Removing Users</h3>
@@ -1423,7 +1429,6 @@
   <h3>Creating a CoursePackage for a Client</h3>
   <table class="param-table">
     <tr><th>Field</th><th>What to set</th><th>Impact on UI</th></tr>
-    <tr><td><span class="param-name">client</span></td><td>Select the ClientUserInfo record</td><td>Scopes the entire package to that tenant</td></tr>
     <tr><td><span class="param-name">title / sub_title</span></td><td>Client-facing package name</td><td>Shown in the Library Hero section</td></tr>
     <tr><td><span class="param-name">courses</span></td><td>Multi-select linked courses</td><td>All modules within these courses appear in the Cases tab</td></tr>
     <tr><td><span class="param-name">job_aid</span></td><td>Select a JobAid record</td><td>Populates the Purpose tab form</td></tr>
@@ -1453,11 +1458,17 @@
     <tr><th>Field</th><th>What it controls in UI</th></tr>
     <tr><td><span class="param-name">chapter_type</span></td><td>Determines how the card renders — BOOK shows read-icon, VIDEO shows play, ASSESSMENT links to test engine</td></tr>
     <tr><td><span class="param-name">audio_link</span></td><td>Enables the ▶️ audio player button on the card. Must be a direct audio URL</td></tr>
+    <tr><td><span class="param-name">image_link</span></td><td>Show the image on the card. Must be a direct Image URL</td></tr>
+    <tr><td><span class="param-name">embed_link</span></td><td>Show the Report button on the card. Must be a direct Report URL</td></tr>
     <tr><td><span class="param-name">key_words</span></td><td>Comma-separated — feeds the global search. More keywords = more discoverable</td></tr>
     <tr><td><span class="param-name">business_outcome</span></td><td>Populates the Business Outcome filter chip</td></tr>
+    <tr><td><span class="param-name">unexpected_outcome</span></td><td>Populates the Unexpected Outcome filter chip</td></tr>
     <tr><td><span class="param-name">function</span></td><td>Populates the Function filter chip</td></tr>
     <tr><td><span class="param-name">tag</span></td><td>Used by quick-filter strip and Advanced Filter</td></tr>
     <tr><td><span class="param-name">startup</span></td><td>Boolean — marks card with Startup badge if true</td></tr>
+    <tr><td><span class="param-name">emerging_player</span></td><td>Boolean — marks card with Latest badge if true</td></tr>
+    <tr><td><span class="param-name">transform_iq</span></td><td>Configuration section used to define JSON transformation logic for the module</td></tr>
+    <tr><td><span class="param-name">total_likes</span></td><td>Total number of likes received for the module (numeric value)</td></tr>
     <tr><td><span class="param-name">implementation_complexity</span></td><td>Shown in the Advanced Filter panel</td></tr>
     <tr><td><span class="param-name">sticker</span></td><td>Short label text shown as a ribbon on the card (e.g. "New", "Featured")</td></tr>
     <tr><td><span class="param-name">card_button_config</span></td><td>JSON overrides for which action buttons appear on this specific card</td></tr>
@@ -1511,6 +1522,7 @@
   <h3>Creating a JobAid</h3>
   <table class="param-table">
     <tr><th>Field</th><th>Value to set</th><th>Effect</th></tr>
+    <tr><td><span class="param-name">jobaid_title</span></td><td>Text / HTML</td><td>Set Jobaid Title for jobaid Page</td></tr>
     <tr><td><span class="param-name">job_aid_type</span></td><td><code>job_aid</code> / <code>form</code> / <code>prompt_generator</code></td><td>Determines the UI flow and output type. <code>form</code> disables AI validation automatically.</td></tr>
     <tr><td><span class="param-name">is_validation</span></td><td>True / False</td><td>If True, each answer is AI-validated before user can proceed to next question</td></tr>
     <tr><td><span class="param-name">is_report</span></td><td>True / False</td><td>If True, submission generates a structured AI report with a shareable URL</td></tr>
@@ -1520,6 +1532,7 @@
     <tr><td><span class="param-name">validation_prompt</span></td><td>LLM prompt string</td><td>System prompt used to validate answers. Should instruct the model to return ACCEPTABLE / NOT ACCEPTABLE + suggestions.</td></tr>
     <tr><td><span class="param-name">report_generation_prompt</span></td><td>LLM prompt string</td><td>System prompt used to generate the final report from all QnA data</td></tr>
     <tr><td><span class="param-name">report_header / report_footer</span></td><td>Text / HTML</td><td>Wraps the AI-generated content in the rendered report page</td></tr>
+    <tr><td><span class="param-name">label</span></td><td>JSON Field</td><td>Label for the JobAid Report page Inovation Score Title Control</td></tr>
   </table>
 
   <h3>Adding Questions to a JobAid</h3>
