@@ -5,7 +5,7 @@ from .dashboard import (
     top_features,
     clicks_by_day,
 )
-from .export import export_events_csv, export_concept_sessions_csv
+from .export import export_events_csv, export_concept_sessions_csv, export_pillar_events_csv
 from .queries import event_qs, concept_session_qs
 
 __all__ = [
@@ -16,6 +16,7 @@ __all__ = [
     "clicks_by_day",
     "export_events_csv",
     "export_concept_sessions_csv",
+    "export_pillar_events_csv",
     "event_qs",
     "concept_session_qs",
 ]

@@ -908,7 +908,7 @@ class CaseMappings(MyModel):
 
 class ConceptSession(MyModel):
     """
-    Stores the current state of a user's session for a single CaseMapping.
+    Stores the current state of a user's session for a single CaseMapping or collection.
     We keep `is_active` because MySQL doesn't support partial unique indexes.
     """
 
@@ -927,7 +927,17 @@ class ConceptSession(MyModel):
     case_mapping = models.ForeignKey(
         CaseMappings,
         related_name="concept_sessions",
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    jobaid_attempted = models.ForeignKey(
+        'jobaid.JobAidSession',
+        related_name="concept_sessions",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
 
     status = models.CharField(
@@ -935,6 +945,8 @@ class ConceptSession(MyModel):
         choices=Status.choices,
         default=Status.STARTED
     )
+
+    meta_data = models.JSONField(null=True, blank=True, default=None)
 
     completion_percentage = models.FloatField(default=0)
 

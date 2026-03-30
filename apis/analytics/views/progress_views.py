@@ -19,6 +19,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from analytics.services.export import export_concept_sessions_csv
 from analytics.trackers import progress_tracker
 from analytics.services import concept_session_stats
 from apis.analytics.serializers import (
@@ -28,7 +29,9 @@ from apis.analytics.serializers import (
     ConceptSessionSerializer,
 )
 from clients.permissions import IsAuthenticatedClient
-from users.models import User
+from jobaid.models import JobAidSession
+from tests.models import CaseMappings, Collection
+from users.models import ClientUserInfo, User
 from users.permissions import IsAuthenticatedUser, IsSuperAdmin
 
 
@@ -203,3 +206,44 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
             )
 
         return Response(ConceptSessionSerializer(session).data)
+    
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[IsAuthenticatedClient, IsAuthenticatedUser],
+        url_path="export-concept-sessions"
+    )
+    def export_concept_sessions(self, request):
+        try:
+            days = int(request.query_params.get("days", 7))
+        except ValueError:
+            days = 7
+        days = days if days in (7, 14, 30, 90) else 7
+
+        client_id = request.query_params.get("client_id")
+        client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
+        
+        cm_id = request.query_params.get("case_mapping_id")
+        case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
+
+        return export_concept_sessions_csv(client=client, case_mapping=case_mapping, days=days)
+    
+    @action(detail=False, methods=["post"], url_path="track-jobaid-session-completion",
+        permission_classes=[IsAuthenticatedClient, IsAuthenticatedUser],
+            )
+    def track_jobaid_session_completion(self, request):
+        """Helper to mark a ConceptSession as completed based on a JobaidSession."""
+        user_id = request.data.get("user_id")
+        jobaid_session_id = request.data.get("jobaid_session_id")
+        collection_id = request.data.get("collection_id")
+        if not user_id or not jobaid_session_id or not collection_id:
+            return Response(
+                {"detail": "user_id, jobaid_session_id, and collection_id are required fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = get_object_or_404(User, uid=user_id)
+        jobaid_session = get_object_or_404(JobAidSession, uid=jobaid_session_id)
+        collection = get_object_or_404(Collection, uid=collection_id)
+        session = progress_tracker.log_jobaid_attempt(user=user, jobaid_session=jobaid_session, collection=collection)
+        return Response({"session_id": session.uid, "status": session.status}, status=status.HTTP_200_OK)
+
