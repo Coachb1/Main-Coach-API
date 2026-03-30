@@ -20,6 +20,9 @@ def _session_model():
     """Lazy import of ConceptSession to avoid circular imports."""
     return apps.get_model("tests", "ConceptSession")
 
+def _jobaid_session_model():
+    """Lazy import of JobAidSession to avoid circular imports."""
+    return apps.get_model("jobaid", "JobAidSession")
 
 class ProgressTracker(BaseTracker):
     """
@@ -188,7 +191,34 @@ class ProgressTracker(BaseTracker):
             "status", "completion_percentage", "ended_at", "is_active", "last_activity_at"
         ])
         return session
+    
+    def log_jobaid_attempt(self, *, user, jobaid_session, collection):
+        """
+        Log a JobAid attempt as a ConceptSession.
+        """
+        ConceptSession = _session_model()
+        if not jobaid_session:
+            return None
 
+        session, created = ConceptSession.objects.get_or_create(
+            user=user,
+            jobaid_attempted=jobaid_session,
+            defaults={
+                "status": ConceptSession.Status.COMPLETED,
+                "completion_percentage": 100.0,
+                "ended_at": now(),
+                "is_active": False,
+                "meta_data": {
+                    "jobaid_session_id": jobaid_session.uid,
+                    "jobaid_id": jobaid_session.id,
+                    "jobaid_title": jobaid_session.title,
+                    "collection_name": collection.collection_name if collection else None,
+                    "collection_id": collection.uid if collection else None,
+                    }
+            }
+        )
+        return session
+        
     # ------------------------------------------------------------------ #
     #  Query helpers                                                      #
     # ------------------------------------------------------------------ #

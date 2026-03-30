@@ -108,6 +108,16 @@ FEATURE_BUTTON_SCHEMA = {
                 'label': {'type': 'string', 'label': 'Label', 'default': 'Logs & Radar'}
             }
         },
+        'analytics_report_button': {
+            'type': 'object',
+            'label': 'Analytics Report Button',
+            'properties': {
+                'show': {'type': 'boolean', 'label': 'Show', 'default': False},
+                'label': {'type': 'string', 'label': 'Label', 'default': 'Reports'},
+                'protected': {'type': 'boolean', 'label': 'Protected', 'default': True},
+                'password': {'type': 'string', 'label': 'Password', 'default': 'demo@2026'}
+            }
+        },
         'leaderboard_button': {
             'type': 'object',
             'label': 'Leaderboard Button',
