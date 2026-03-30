@@ -54,7 +54,8 @@ def concept_session_qs(
     case_mapping=None,
     status: str = None,
     is_active: bool = None,
-    user=None,
+    users=[],
+    days: int = None,
 ) -> QuerySet:
     """
     Return a filtered ConceptSession queryset.
@@ -64,8 +65,12 @@ def concept_session_qs(
     ConceptSession = apps.get_model("tests", "ConceptSession")
     qs = ConceptSession.objects.select_related("user", "case_mapping")
 
-    if user:
-        qs = qs.filter(user=user)
+    if days:
+        since = now() - timedelta(days=days)
+        qs = qs.filter(last_activity_at__gte=since)
+
+    if users and len(users) > 0:
+        qs = qs.filter(user__in=users)
     if case_mapping:
         qs = qs.filter(case_mapping=case_mapping)
     if status:

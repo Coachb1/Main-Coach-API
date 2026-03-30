@@ -170,6 +170,8 @@ def clicks_by_day(days: int = 7) -> list[dict]:
 
 def concept_session_stats(
     *,
+    client=None,
+    days: int = None,
     case_mapping=None,
     user=None,
 ) -> dict:
@@ -182,9 +184,18 @@ def concept_session_stats(
     Returns:
         dict with keys: summary, by_case_mapping, user_detail, meta
     """
+    from identities.helpers import get_users_by_client
     ConceptSession = apps.get_model("tests", "ConceptSession")
 
-    qs = concept_session_qs(case_mapping=case_mapping, user=user)
+    users_to_filter = []
+    if client:
+        users_to_filter = get_users_by_client(tenant_id=client.tenant_id, client_id=client.uid)
+    elif user:
+        users_to_filter = [user]
+
+    qs = concept_session_qs(
+        case_mapping=case_mapping, users=users_to_filter, days=days
+    )
 
     # --- Per-case-mapping rollup ---
     by_mapping = (
@@ -254,6 +265,7 @@ def concept_session_stats(
         "user_detail": user_detail,
         "meta": {
             "case_mapping_id": str(case_mapping.uid) if case_mapping else None,
-            "scope": "user" if user else "global",
+            "scope": "client" if client else "user" if user else "global",
+            "days": days,
         },
     }
