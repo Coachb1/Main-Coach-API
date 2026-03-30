@@ -7,6 +7,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from analytics.models import Event
 from analytics.services import (
     dashboard_stats,
+    export_pillar_events_csv,
     feature_detail_stats,
     concept_session_stats,
     export_events_csv,
@@ -84,7 +85,7 @@ def analytics_export_csv(request):
         days = 7
     client_id = request.GET.get("client_id")
     client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
-    return export_events_csv(
+    return export_pillar_events_csv(
         days=days, client=client,
         feature=request.GET.get("feature"),
         feature_path=request.GET.get("feature_path"),
@@ -99,10 +100,18 @@ def analytics_export_csv(request):
 def concept_session_dashboard_view(request):
     CaseMappings = apps.get_model("tests", "CaseMappings")
 
+    try:
+        days = int(request.GET.get("days", 7))
+    except ValueError:
+        days = 7
+    days = days if days in (7, 14, 30, 90) else 7
+
     cm_id = request.GET.get("case_mapping_id")
+    client_id = request.GET.get("client_id")
+    client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
     case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
 
-    data = concept_session_stats(case_mapping=case_mapping)
+    data = concept_session_stats(case_mapping=case_mapping, client=client, days=days)
 
     all_mappings = CaseMappings.objects.all().order_by("id")
 
@@ -110,15 +119,27 @@ def concept_session_dashboard_view(request):
         "data": data,
         "all_case_mappings": all_mappings,
         "selected_case_mapping": case_mapping,
+        "clients": ClientUserInfo.objects.all().order_by("client_name"),
+        "selected_client": client,
+        "selected_days": days,
     })
 
 
 @staff_member_required
 def concept_session_export_csv(request):
+    try:
+        days = int(request.GET.get("days", 7))
+    except ValueError:
+        days = 7
+    days = days if days in (7, 14, 30, 90) else 7
+
+    client_id = request.GET.get("client_id")
+    client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
+    
     CaseMappings = apps.get_model("tests", "CaseMappings")
     cm_id = request.GET.get("case_mapping_id")
     case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
-    return export_concept_sessions_csv(case_mapping=case_mapping)
+    return export_concept_sessions_csv(client=client, case_mapping=case_mapping, days=days)
 
 
 # ------------------------------------------------------------------ #

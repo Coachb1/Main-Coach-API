@@ -40,7 +40,15 @@ Export CSV
 <form method="get" id="filterForm">
 
 <div class="filter-row">
-
+<div class="filter-group">
+  <label class="filter-label">Date Range</label>
+  <select name="days" class="filter-select" onchange="this.form.submit()">
+    <option value="7"  {% if selected_days == 7  %}selected{% endif %}>Last 7 days</option>
+    <option value="14" {% if selected_days == 14 %}selected{% endif %}>Last 14 days</option>
+    <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+    <option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 days</option>
+  </select>
+</div>
 <div class="filter-group">
 
 <label class="filter-label">Case Mapping</label>
@@ -91,7 +99,7 @@ onchange="this.form.submit()">
 </div>
 
 
-{% if selected_case_mapping or selected_client %}
+{% if selected_case_mapping or selected_client or selected_days %}
 
 <a href="{% url 'admin:analytics-concept-sessions' %}"
 class="filter-clear">
@@ -426,6 +434,11 @@ No session data available
 
   const caseMappingId = "{{ selected_case_mapping.uid|default:'' }}";
   const clientId = "{{ selected_client.uid|default:'' }}";
+  const days = "{{ selected_days|default:'' }}";
+  if (days) {
+    params.set("days", days);
+  }
+
 
   if (caseMappingId) {
     params.set("case_mapping_id", caseMappingId);
@@ -434,7 +447,6 @@ No session data available
   if (clientId) {
     params.set("client_id", clientId);
   }
-
   const base = "{% url 'admin:analytics-concept-sessions-export' %}";
   document.getElementById("exportBtn").href =
     base + (params.toString() ? "?" + params.toString() : "");
