@@ -13,6 +13,8 @@ from analytics.services import (
     export_events_csv,
     export_concept_sessions_csv,
 )
+from analytics.services.export import export_concept_sessions_excel, export_pillar_events_excel
+from apis.analytics.view import export_analytics_combined_excel
 from users.models import ClientUserInfo, User
 from tenants.admin import TenantAwareModelAdmin
 
@@ -85,12 +87,21 @@ def analytics_export_csv(request):
         days = 7
     client_id = request.GET.get("client_id")
     client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
-    return export_pillar_events_csv(
+    return export_pillar_events_excel(
         days=days, client=client,
         feature=request.GET.get("feature"),
         feature_path=request.GET.get("feature_path"),
     )
 
+@staff_member_required
+def analytics_export_combined_csv(request):
+    try:
+        days = int(request.GET.get("days", 7))
+    except ValueError:
+        days = 7
+    client_id = request.GET.get("client_id")
+    client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
+    return export_analytics_combined_excel(days=days, client=client)
 
 # ------------------------------------------------------------------ #
 #  Concept Session views                                              #
@@ -139,7 +150,7 @@ def concept_session_export_csv(request):
     CaseMappings = apps.get_model("tests", "CaseMappings")
     cm_id = request.GET.get("case_mapping_id")
     case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
-    return export_concept_sessions_csv(client=client, case_mapping=case_mapping, days=days)
+    return export_concept_sessions_excel(client=client, case_mapping=case_mapping, days=days)
 
 
 # ------------------------------------------------------------------ #
@@ -167,6 +178,9 @@ def inject_analytics_admin_urls():
             path("analytics/concept-sessions/export/",
                  admin.site.admin_view(concept_session_export_csv),
                  name="analytics-concept-sessions-export"),
+            path("analytics/export-all/",
+                 admin.site.admin_view(analytics_export_combined_csv),
+                 name="analytics-export-combined-csv"),
         ]
         return custom_urls + original_get_urls()
 
