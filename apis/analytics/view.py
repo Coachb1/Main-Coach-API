@@ -7,7 +7,7 @@ from django.shortcuts import render
 
 from analytics.models import Event
 from analytics.services import clicks_by_day, dashboard_stats, top_features
-from analytics.services.export import export_all_data_zip
+from analytics.services.export import export_all_data_zip, export_analytics_combined_excel
 from clients.permissions import IsAuthenticatedClient
 from users.models import ClientUserInfo, User
 from users.permissions import IsAuthenticatedUser, IsSuperAdmin
@@ -98,7 +98,7 @@ class EventViewSet(viewsets.GenericViewSet):
 
             client = get_object_or_404(ClientUserInfo, uid=client_id) if client_id else None
 
-            zipped_reports = export_all_data_zip(days=days, client=client)
+            zipped_reports = export_analytics_combined_excel(days=days, client=client)
             return zipped_reports
 
         except Exception as e:
