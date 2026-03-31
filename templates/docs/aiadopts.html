@@ -1188,7 +1188,7 @@
     <div class="field-row"><span class="field-key">prompt_job_aid</span><span class="field-type-badge">FK → JobAid</span><span class="field-desc">Prompt-based JobAid</span></div>
     <div class="field-row"><span class="field-key">page_config</span><span class="field-type-badge">JSONField</span><span class="field-desc">UI behavior config (filters, search, lists)</span></div>
   </div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <h3>Module</h3>
   <p>Individual learning unit inside a course. Supports: ASSESSMENT, VIDEO, TEXT, CHATBOT, IMAGE, BOOK.</p>
   <div class="field-grid">
@@ -1207,7 +1207,7 @@
     <div class="field-row"><span class="field-key">emerging_player</span><span class="field-type-badge">BooleanField</span><span class="field-desc">Is Latest Company flag</span></div>
     <div class="field-row"><span class="field-key">card_button_config</span><span class="field-type-badge">JSONField</span><span class="field-desc">Card button display settings</span></div>
   </div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <h3>ModuleProgress</h3>
   <p>Lifecycle: <code>not_started → in_progress → completed</code></p>
   <div class="field-grid">
@@ -1216,7 +1216,7 @@
     <div class="field-row"><span class="field-key">played_audio</span><span class="field-type-badge">Float</span><span class="field-desc">Audio consumed (seconds/percentage)</span></div>
     <div class="field-row"><span class="field-key">user_progress</span><span class="field-type-badge">FK → UserProgress</span><span class="field-desc">Linked course-level progress</span></div>
   </div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <hr />
 
   <h2>JobAid Models</h2>
@@ -1234,7 +1234,7 @@
     <div class="field-row"><span class="field-key">session_voting_enabled</span><span class="field-type-badge">Boolean</span><span class="field-desc">Enable session voting in IdeaBoard</span></div>
   </div>
   <div class="note"><strong>📌 Logic</strong>: If job_aid_type = "form" → validation is disabled automatically.</div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <h3>JobAidSession</h3>
   <div class="field-grid">
     <div class="field-row"><span class="field-key">status</span><span class="field-type-badge">Choice</span><span class="field-desc">in_progress | completed | cancelled</span></div>
@@ -1245,7 +1245,7 @@
     <div class="field-row"><span class="field-key">client_id</span><span class="field-type-badge">CharField</span><span class="field-desc">Client identifier for scoping</span></div>
     <div class="field-row"><span class="field-key">resources</span><span class="field-type-badge">ManyToMany</span><span class="field-desc">Linked client resources</span></div>
   </div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <hr />
 
   <h2>Company IQ Model</h2>
@@ -1261,6 +1261,7 @@
     <div class="field-row"><span class="field-key">source</span><span class="field-type-badge">Choice</span><span class="field-desc">Manual | CSV | LLM</span></div>
     <div class="field-row"><span class="field-key">score</span><span class="field-type-badge">JSONField</span><span class="field-desc">AI maturity scores (overall, data_foundation, ai_adoption, governance)</span></div>
   </div>
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <div class="warning"><strong>⚠️ Critical</strong>: Only records where <code>approved=True AND deleted=False</code> are ever visible in any API. No exceptions.</div>
 
   <hr />
@@ -1274,7 +1275,7 @@
     <div class="field-row"><span class="field-key">is_active</span><span class="field-type-badge">BooleanField</span><span class="field-desc">Active session flag</span></div>
     <div class="field-row"><span class="field-key">last_activity_at</span><span class="field-type-badge">DateTimeField</span><span class="field-desc">Last activity timestamp</span></div>
   </div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: You can fetch data for coursepackage in frontend through API calls. </div>
   <div class="section-nav">
     <a onclick="navigate('apis')"><span class="label">← Previous</span><span class="title">Django Dashboard APIs</span></a>
     <a class="next" onclick="navigate('overview')"><span class="label">↑ Back to</span><span class="title">Overview</span></a>
@@ -1436,7 +1437,7 @@
     <tr><td><span class="param-name">image_link</span></td><td>URL of hero background image</td><td>Library page hero visual</td></tr>
     <tr><td><span class="param-name">page_config</span></td><td>JSON object (see below)</td><td>Controls which filters and search UI are visible</td></tr>
   </table>
-
+  <div class="tip"><strong>✅ NOTE</strong>: For Create Course Packages, For Specific Client or This Course package asign to multiple clients. <strong>Course Package</strong> In Course Package Contain Full Course,Jobaid Which jobaid asign to user you can asign the jobaid here, We Can add Title,Subtitle,image for header,also asign prompt jobaid. </div>
   <h3>page_config options</h3>
   <div class="code-block">
     <div class="code-header"><span class="lang">page_config JSON</span><button class="copy-btn">Copy</button></div>
@@ -1451,6 +1452,8 @@
   <span class="c">// shows the global search bar above the Cases grid</span>
 <span class="p">}</span></pre>
   </div>
+  <div class="tip"><strong>✅ NOTE</strong>: Show And Hide Dropdown Control Here. <strong>Page Config</strong> Configure Page here which dropdown we want to show to client, also  asign prompt jobaid.</div>
+
 
   <h3>Setting up Modules (Books)</h3>
   <p>Go to <strong>Admin → Courses → Module</strong></p>
@@ -1473,21 +1476,21 @@
     <tr><td><span class="param-name">sticker</span></td><td>Short label text shown as a ribbon on the card (e.g. "New", "Featured")</td></tr>
     <tr><td><span class="param-name">card_button_config</span></td><td>JSON overrides for which action buttons appear on this specific card</td></tr>
   </table>
-
+  <div class="tip"><strong>✅ NOTE</strong>: We can add and update single module here. <strong>Module</strong> We can add thousand of module through course section just upload CSV file, if you can add single module then you can add here Just click add module then Fill the Field and just click save button, and also update the single module here. </div>
   <h3>Setting up Concepts (Collections + CaseMappings)</h3>
-  <p>Go to <strong>Admin → Courses → Collection</strong> and <strong>Admin → Courses → CaseMapping</strong></p>
+  <p>Go to <strong>Admin → Tests → Collection</strong> and <strong>Admin → Tests → CaseMapping</strong></p>
   <div class="flow">
     <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>Create a Collection</strong><p>Set <code>collection_name</code>, <code>heading</code>. Paste the <code>action_tab_info</code> JSON to define the buttons that appear in the Concepts tab header.</p></div></div>
     <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>Add CaseMappings to the Collection</strong><p>Each CaseMapping is one tab/sub-page inside the collection. Set <code>embed_link</code> (iframe), <code>tab_name</code>, and optionally <code>transform_iq</code> URL.</p></div></div>
     <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>Set action_name on CaseMapping</strong><p>The <code>action_name</code> is auto-generated to match the <code>action</code> key in <code>action_tab_info.buttons</code>. This is how clicking a button in the UI loads the right iframe.</p></div></div>
     <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>Link Collection to ClientUserInfo</strong><p>The <code>collections</code> field on ClientUserInfo determines which Collections appear in the Concepts tab for that client.</p></div></div>
   </div>
-
+  <div class="tip"><strong>✅ NOTE</strong>: We can Create every pillor tab and mapping to pillor. <strong>Collection</strong> Here we Can add or create bulk amount of collection means Pillor in our app, Here we can add tab like HTML,PDF,Videos,Iframe,Jobaids Links. <strong>CaseMapping</strong> Here we can add only single tab in this casemappling we can add only HTML,PDF,Video,Iframe Links </div>
   <!-- ── 5. Company IQ Approval ─────────────────────────── -->
   <h2 id="dj-companyiq">Company IQ — Approval & Data Management</h2>
   <p>Go to <strong>Admin → Company IQ → CompanyIQ</strong></p>
   <p>Company IQ records are <strong>never visible in the frontend until explicitly approved</strong> by an admin. This is the main content gate for the Landscape tab.</p>
-
+  
   <h3>Approving a Company Record</h3>
   <table class="param-table">
     <tr><th>Step</th><th>Field</th><th>Notes</th></tr>
@@ -1496,7 +1499,7 @@
     <tr><td>3. Set approved</td><td><code>approved = True</code></td><td>Record is now live in the Landscape tab immediately</td></tr>
     <tr><td>4. Set source</td><td><code>source</code></td><td>Manual / CSV / LLM — for auditability</td></tr>
   </table>
-
+  <div class="tip"><strong>✅ NOTE</strong>: We can generate thousand Plus company data based on input type. <strong>CompanyIQ</strong> Here we can generate Thousand Plus company data based on input type and showing in frontend after admin approve. </div>
   <div class="warning"><strong>⚠️ Duplicate protection</strong>: The system blocks creation of a second record with the same normalized company name. If you try to create "Google" when "google" already exists, it will be rejected at save time.</div>
 
   <h3>Soft-deleting a Company Record</h3>
@@ -1534,7 +1537,7 @@
     <tr><td><span class="param-name">report_header / report_footer</span></td><td>Text / HTML</td><td>Wraps the AI-generated content in the rendered report page</td></tr>
     <tr><td><span class="param-name">label</span></td><td>JSON Field</td><td>Label for the JobAid Report page Inovation Score Title Control</td></tr>
   </table>
-
+  <div class="tip"><strong>✅ NOTE</strong>: We can create various type of jobaid form. <strong>Jobaid </strong> Here we can create various type of jobaid form. Like Form, Report, Prompt Generator, Validate the Form input Through Prompt </div>
   <h3>Adding Questions to a JobAid</h3>
   <p>Go to <strong>Admin → Job Aid → JobAidQuestion</strong>, create questions linked to the JobAid.</p>
   <table class="param-table">
@@ -1547,7 +1550,7 @@
     <tr><td><span class="param-name">section</span></td><td>String label</td><td>Groups questions under a section heading in the form UI</td></tr>
     <tr><td><span class="param-name">validation_prompt</span></td><td>LLM prompt</td><td>Question-level override — runs instead of the JobAid-level prompt for this specific question</td></tr>
   </table>
-
+  <div class="tip"><strong>✅ NOTE</strong>: We can Here We can add question. <strong>JobAidQuestion </strong> Here qe can add question for the JobAid. And modify question type Like dropdown, text, boolean.</div>
   <!-- ── 7. Feature Flag Quick Reference ────────────────── -->
   <h2 id="dj-flags">Feature Flags — Quick Reference</h2>
   <p>Use this table as a checklist when setting up or debugging a client's Library Bot experience.</p>
