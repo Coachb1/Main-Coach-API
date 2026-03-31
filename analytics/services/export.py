@@ -14,6 +14,7 @@ from identities.helpers import get_users_by_client
 from .queries import event_qs, concept_session_qs
 import io
 import zipfile
+from commons.export_excel import ExcelExporter, Sheet, Column, Theme
 
 def export_events_csv(
     *,
@@ -235,3 +236,310 @@ def export_concept_sessions_csv(
             ])
 
     return response
+
+
+def export_analytics_combined_excel(
+    *,
+    days: int = 7,
+    client=None,
+    user=None,
+    feature: str = None,
+    feature_path: str = None,
+    case_mapping=None,
+) -> HttpResponse:
+    """
+    Export pillar events + concept sessions as two tabs in a single Excel file.
+    """
+
+    # ── Tab 1: Pillar events ─────────────────────────────────────────────────
+    qs = event_qs(
+        days=days, user=user, client=client,
+        feature=feature, feature_path=feature_path
+    ).filter(event_type=Event.CLICK)
+
+    total_clicks = qs.count() or 1
+    pillars = {}
+
+    for ev in qs.only("feature_path", "created").iterator(chunk_size=2000):
+        path = ev.get_path_list()
+        if not path:
+            continue
+        pillar = path[0]
+        if pillar not in pillars:
+            pillars[pillar] = {"clicks": 0, "last_activity": ev.created}
+        pillars[pillar]["clicks"] += 1
+        if ev.created > pillars[pillar]["last_activity"]:
+            pillars[pillar]["last_activity"] = ev.created
+
+    pillar_rows = [
+        [
+            pillar,
+            stats["clicks"],
+            stats["last_activity"].date(),
+            round((stats["clicks"] / total_clicks) * 100, 2),
+        ]
+        for pillar, stats in sorted(pillars.items(), key=lambda x: x[1]["clicks"], reverse=True)
+    ]
+
+    pillar_sheet = Sheet(
+        name="📌 Pillar Events",
+        subtitle=f"Click activity by pillar — last {days} days",
+        columns=[
+            Column("Pillar",        width=28, bold_col=True),
+            Column("Total Clicks",  width=14, fmt="#,##0", align="center"),
+            Column("Last Activity", width=16,              align="center"),
+            Column("Usage %",       width=12, fmt="0.00",  align="center"),
+        ],
+        rows=pillar_rows,
+        summary={
+            "TOTAL": "",
+            " ":     f"=SUM(B4:B{len(pillar_rows) + 4})",
+            "  ":    "",
+            "   ":   "",
+        },
+    )
+
+    # ── Tab 2: Concept sessions ──────────────────────────────────────────────
+    users = []
+    if client:
+        users = get_users_by_client(tenant_id=client.tenant_id, client_id=client.uid)
+
+    session_qs = (
+        concept_session_qs(
+            case_mapping=case_mapping, users=users,
+            days=days,
+            gte_completion_percent=1
+        )
+        .order_by("case_mapping__id", "user__id", "-started_at")
+    )
+
+    qs = (
+        concept_session_qs(case_mapping=case_mapping, users=users, status="in_progress", days=days)
+        .order_by("case_mapping__id", "user__id", "-started_at")
+    )
+
+    session_rows = []
+    _client = client
+
+    for s in session_qs.iterator(chunk_size=500):
+        if not _client:
+            _client = s.user.get_client() if s.user else None
+
+        no_login  = _client and _client.library_bot_config.login_view == "no_login"
+        user_name = _client.client_name if no_login else (s.user.name if s.user else "")
+        email     = "" if no_login else (s.user.get_email() if s.user else "")
+
+        if s.case_mapping:
+            session_rows.append([
+                user_name, email,
+                str(s.case_mapping.collection.collection_name) if s.case_mapping else "",
+                str(s.case_mapping.tab_name)                   if s.case_mapping else "NA",
+                s.completion_percentage or "NA",
+                "NA",
+                s.last_activity_at.date() if s.last_activity_at else "NA",
+            ])
+        elif s.jobaid_attempted:
+            session_rows.append([
+                user_name, email,
+                s.meta_data.get("collection_name", "NA") if s.meta_data else "NA",
+                "NA", "NA",
+                str(s.jobaid_attempted.title) if s.jobaid_attempted else "NA",
+                s.last_activity_at.date() if s.last_activity_at else "NA",
+            ])
+
+    session_sheet = Sheet(
+        name="🧠 Concept Sessions",
+        subtitle="In-progress/completed concept sessions",
+        columns=[
+            Column("User Name",     width=24, bold_col=True),
+            Column("Email",         width=30),
+            Column("Pillar",        width=22),
+            Column("Module",        width=24),
+            Column("Completion %",  width=14, align="center"),
+            Column("Use Case",      width=26),
+            Column("Last Activity", width=16, align="center"),
+        ],
+        rows=session_rows,
+    )
+
+    # ── Combine & return ─────────────────────────────────────────────────────
+    slug      = f"_{case_mapping.uid}" if case_mapping else ""
+    timestamp = now().strftime("%Y%m%d_%H%M%S")
+
+    return (
+        ExcelExporter(
+            title=f"Analytics Export — Last {days} days",
+            theme=Theme.navy(),
+            meta={
+                "Period":       f"{days} days",
+                "Client":       str(client)       if client       else "All",
+            },
+        )
+        .add_sheet(pillar_sheet)
+        .add_sheet(session_sheet)
+        .to_django_response(f"analytics{slug}_{days}d_{timestamp}.xlsx")
+    )
+
+
+
+def export_pillar_events_excel(
+    *,
+    days: int = 7,
+    client=None,
+    user=None,
+    feature: str = None,
+    feature_path: str = None,
+) -> HttpResponse:
+    """Export pillar-level click event stats as a styled Excel file."""
+
+    qs = event_qs(
+        days=days, user=user, client=client,
+        feature=feature, feature_path=feature_path
+    ).filter(event_type=Event.CLICK)
+
+    total_clicks = qs.count() or 1
+
+    # ── Aggregate pillars ────────────────────────────────────────────────────
+    pillars = {}
+    for ev in qs.only("feature_path", "created").iterator(chunk_size=2000):
+        path = ev.get_path_list()
+        if not path:
+            continue
+        pillar = path[0]
+        if pillar not in pillars:
+            pillars[pillar] = {"clicks": 0, "last_activity": ev.created}
+        pillars[pillar]["clicks"] += 1
+        if ev.created > pillars[pillar]["last_activity"]:
+            pillars[pillar]["last_activity"] = ev.created
+
+    sorted_pillars = sorted(pillars.items(), key=lambda x: x[1]["clicks"], reverse=True)
+
+    rows = [
+        [
+            pillar,
+            stats["clicks"],
+            stats["last_activity"].date(),
+            round((stats["clicks"] / total_clicks) * 100, 2),
+        ]
+        for pillar, stats in sorted_pillars
+    ]
+
+    # ── Build sheet ──────────────────────────────────────────────────────────
+    sheet = Sheet(
+        name="📌 Pillars",
+        subtitle=f"Click activity by pillar — last {days} days",
+        columns=[
+            Column("Pillar",        width=28, bold_col=True),
+            Column("Total Clicks",  width=14, fmt="#,##0",  align="center"),
+            Column("Last Activity", width=16,               align="center"),
+            Column("Usage %",       width=12, fmt="0.00",   align="center"),
+        ],
+        rows=rows,
+        summary={
+            "TOTAL":  "",
+            " ":      f"=SUM(B4:B{len(rows) + 4})",
+            "  ":     "",
+            "   ":    "",
+        },
+    )
+
+    timestamp = now().strftime("%Y%m%d_%H%M%S")
+    return (
+        ExcelExporter(
+            title=f"Pillar Events — Last {days} days",
+            theme=Theme.navy(),
+            meta={
+                "Period":       f"{days} days",
+                "Client":       str(client) if client else "All",
+            },
+        )
+        .add_sheet(sheet)
+        .to_django_response(f"pillar_events_{days}d_{timestamp}.xlsx")
+    )
+
+
+def export_concept_sessions_excel(
+    *,
+    client=None,
+    case_mapping=None,
+    days: int = None,
+) -> HttpResponse:
+    """Export ConceptSession records as a styled Excel file."""
+
+    users = None
+    if client:
+        users = get_users_by_client(tenant_id=client.tenant_id, client_id=client.uid)
+
+    qs = (
+        concept_session_qs(
+            case_mapping=case_mapping, users=users,
+            days=days,
+            gte_completion_percent=1
+        )
+        .order_by("case_mapping__id", "user__id", "-started_at")
+    )
+
+    # ── Build rows ───────────────────────────────────────────────────────────
+    rows = []
+    _client = client  # avoid mutating the outer variable inside the loop
+
+    for s in qs.iterator(chunk_size=500):
+        if not _client:
+            _client = s.user.get_client() if s.user else None
+
+        no_login  = _client and _client.library_bot_config.login_view == "no_login"
+        user_name = _client.client_name if no_login else (s.user.name if s.user else "")
+        email     = "" if no_login else (s.user.get_email() if s.user else "")
+
+        if s.case_mapping:
+            rows.append([
+                user_name,
+                email,
+                str(s.case_mapping.collection.collection_name) if s.case_mapping else "",
+                str(s.case_mapping.tab_name)                   if s.case_mapping else "NA",
+                s.completion_percentage or "NA",
+                "NA",
+                s.last_activity_at.date() if s.last_activity_at else "NA",
+            ])
+        elif s.jobaid_attempted:
+            rows.append([
+                user_name,
+                email,
+                s.meta_data.get("collection_name", "NA") if s.meta_data else "NA",
+                "NA",
+                "NA",
+                str(s.jobaid_attempted.title) if s.jobaid_attempted else "NA",
+                s.last_activity_at.date() if s.last_activity_at else "NA",
+            ])
+
+    # ── Build sheet ──────────────────────────────────────────────────────────
+    sheet = Sheet(
+        name="🧠 Sessions",
+        subtitle="In-progress/completed concept sessions",
+        columns=[
+            Column("User Name",     width=24, bold_col=True),
+            Column("Email",         width=30),
+            Column("Pillar",        width=22),
+            Column("Module",        width=24),
+            Column("Completion %",  width=14, align="center"),
+            Column("Use Case",      width=26),
+            Column("Last Activity", width=16, align="center"),
+        ],
+        rows=rows,
+    )
+
+    slug      = f"_{case_mapping.uid}" if case_mapping else ""
+    timestamp = now().strftime("%Y%m%d_%H%M%S")
+    return (
+        ExcelExporter(
+            title="User Concept Sessions",
+            theme=Theme.navy(),
+            meta={
+                "Status":       "In Progress/Completed",
+                "Client":       str(client)       if client       else "All",
+                "Period":       f"{days} days"    if days         else "All time",
+            },
+        )
+        .add_sheet(sheet)
+        .to_django_response(f"user_sessions{slug}_{timestamp}.xlsx")
+    )

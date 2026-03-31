@@ -56,6 +56,7 @@ def concept_session_qs(
     is_active: bool = None,
     users=[],
     days: int = None,
+    gte_completion_percent: int = None,
 ) -> QuerySet:
     """
     Return a filtered ConceptSession queryset.
@@ -78,6 +79,8 @@ def concept_session_qs(
     if is_active is not None:
         qs = qs.filter(is_active=is_active)
 
+    if gte_completion_percent:
+        qs = qs.filter(completion_percentage__gte=gte_completion_percent)
     return qs
 
 
