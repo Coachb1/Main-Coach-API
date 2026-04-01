@@ -15,6 +15,8 @@ from analytics.services import (
 )
 from analytics.services.export import export_concept_sessions_excel, export_pillar_events_excel
 from apis.analytics.view import export_analytics_combined_excel
+from jobaid.models import JobAidSession
+from tests.models import Module
 from users.models import ClientUserInfo, User
 from tenants.admin import TenantAwareModelAdmin
 
@@ -121,15 +123,54 @@ def concept_session_dashboard_view(request):
     client_id = request.GET.get("client_id")
     client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
     case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
+    module = None
+    jobaid_session = None
 
-    data = concept_session_stats(case_mapping=case_mapping, client=client, days=days)
+    if cm_id and not case_mapping:
+        module = apps.get_model("tests", "Module").objects.filter(uid=cm_id).first()
+        if not module:
+            jobaid_session = JobAidSession.objects.filter(uid=cm_id).first()
 
-    all_mappings = CaseMappings.objects.all().order_by("id")
+    data = concept_session_stats(
+        case_mapping=case_mapping,
+        module=module,
+        jobaid_session=jobaid_session,
+        client=client,
+        days=days,
+    )
+
+
+    all_mappings = CaseMappings.objects.filter(
+        concept_sessions__isnull=False
+    ).distinct()    
+    all_modules = Module.objects.filter(
+        concept_sessions__isnull=False
+    ).distinct()
+    all_jobaid_sessions = JobAidSession.objects.filter(
+        concept_sessions__isnull=False
+    ).distinct().order_by("-created")
+
+
+    # Determine selected item info
+    selected_item = None
+    selected_item_type = None
+    if case_mapping:
+        selected_item = case_mapping
+        selected_item_type = "case_mapping"
+    elif module:
+        selected_item = module
+        selected_item_type = "module"
+    elif jobaid_session:
+        selected_item = jobaid_session
+        selected_item_type = "jobaid"
 
     return render(request, "analytics/concept_sessions.html", {
         "data": data,
         "all_case_mappings": all_mappings,
-        "selected_case_mapping": case_mapping,
+        "all_modules": all_modules,
+        "all_jobaid_sessions": all_jobaid_sessions,
+        "selected_item": selected_item,
+        "selected_item_type": selected_item_type,
         "clients": ClientUserInfo.objects.all().order_by("client_name"),
         "selected_client": client,
         "selected_days": days,
@@ -150,7 +191,22 @@ def concept_session_export_csv(request):
     CaseMappings = apps.get_model("tests", "CaseMappings")
     cm_id = request.GET.get("case_mapping_id")
     case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
-    return export_concept_sessions_excel(client=client, case_mapping=case_mapping, days=days)
+    module = None
+    jobaid_session = None
+
+    if cm_id and not case_mapping:
+        from jobaid.models import JobAidSession
+        module = apps.get_model("tests", "Module").objects.filter(uid=cm_id).first()
+        if not module:
+            jobaid_session = JobAidSession.objects.filter(uid=cm_id).first()
+
+    return export_concept_sessions_excel(
+        client=client,
+        case_mapping=case_mapping,
+        module=module,
+        jobaid_session=jobaid_session,
+        days=days,
+    )
 
 
 # ------------------------------------------------------------------ #

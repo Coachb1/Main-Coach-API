@@ -97,9 +97,10 @@ def get_users_by_client(tenant_id, client_id, identity_type="deepchat_unique_id"
         return []
     emails = client.member_emails.split(',')
     users = []
+    tenant = Tenant.objects.filter(uid=tenant_id).first()
     for email in emails:
         email = email.strip()
-        user = get_user_via_identity(tenant=tenant_id, identity_type=identity_type, identity_value=email)
+        user = get_user_via_identity(tenant=tenant, identity_type=identity_type, identity_value=email)
         if user:
             users.append(user)
     return users
