@@ -30,17 +30,26 @@ from apis.analytics.serializers import (
 )
 from clients.permissions import IsAuthenticatedClient
 from jobaid.models import JobAidSession
-from tests.models import CaseMappings, Collection
+from tests.models import CaseMappings, Collection, Module
 from users.models import ClientUserInfo, User
 from users.permissions import IsAuthenticatedUser, IsSuperAdmin
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 
 
 def _get_user_and_mapping(validated_data):
     """Resolve User and CaseMappings from validated serializer data."""
     CaseMappings = apps.get_model("tests", "CaseMappings")
     user = get_object_or_404(User, uid=validated_data["user_id"])
-    case_mapping = get_object_or_404(CaseMappings, uid=validated_data["case_mapping_id"])
-    return user, case_mapping
+    case_mapping = CaseMappings.objects.filter(uid=validated_data["case_mapping_id"]).first()
+    module = None
+    if not case_mapping:
+        # fetch module-level CaseMappings here to avoid importing the model at the top level of the file    
+        module = get_object_or_404(Module, uid=validated_data["case_mapping_id"])
+    return user, case_mapping, module
 
 
 class ConceptProgressViewSet(viewsets.GenericViewSet):
@@ -58,16 +67,24 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
             user_id         (uuid, required)
             case_mapping_id (uuid, required)
         """
-        serializer = StartSessionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer = StartSessionSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-        user, case_mapping = _get_user_and_mapping(serializer.validated_data)
-        session = progress_tracker.start(user=user, case_mapping=case_mapping)
+            user, case_mapping, module = _get_user_and_mapping(serializer.validated_data)
+            session = progress_tracker.start(user=user, case_mapping=case_mapping, module=module)
 
-        return Response(
-            ConceptSessionSerializer(session).data,
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                ConceptSessionSerializer(session).data,
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.exception(f"Error in start: {e}")
+            return Response(
+                {"error": "An error occurred while starting the session."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
     @action(detail=False, methods=["post"], url_path="update")
     def update_progress(self, request):
@@ -85,11 +102,12 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
         serializer = UpdateProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user, case_mapping = _get_user_and_mapping(serializer.validated_data)
+        user, case_mapping, module = _get_user_and_mapping(serializer.validated_data)
         session = progress_tracker.update_progress(
             user=user,
             case_mapping=case_mapping,
             completion_percentage=serializer.validated_data["completion_percentage"],
+            module=module,
         )
 
         return Response(
@@ -112,8 +130,8 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
         serializer = CompleteSessionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user, case_mapping = _get_user_and_mapping(serializer.validated_data)
-        session = progress_tracker.complete(user=user, case_mapping=case_mapping)
+        user, case_mapping, module = _get_user_and_mapping(serializer.validated_data)
+        session = progress_tracker.complete(user=user, case_mapping=case_mapping, module=module)
 
         if not session:
             return Response(
@@ -165,10 +183,24 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
         cm_id = request.query_params.get("case_mapping_id")
         user_id = request.query_params.get("user_id")
 
-        case_mapping = get_object_or_404(CaseMappings, uid=cm_id) if cm_id else None
+        case_mapping = None
+        module = None
+        jobaid_session = None
+        if cm_id:
+            case_mapping = CaseMappings.objects.filter(uid=cm_id).first()
+            if not case_mapping:
+                module = Module.objects.filter(uid=cm_id).first()
+            if not case_mapping and not module:
+                jobaid_session = JobAidSession.objects.filter(uid=cm_id).first()
+
         user = get_object_or_404(User, uid=user_id) if user_id else None
 
-        data = concept_session_stats(case_mapping=case_mapping, user=user)
+        data = concept_session_stats(
+            case_mapping=case_mapping,
+            user=user,
+            module=module,
+            jobaid_session=jobaid_session,
+        )
         return Response(data)
 
     @action(
@@ -190,18 +222,18 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
 
         if not user_id or not case_mapping_id:
             return Response(
-                {"detail": "user_id and case_mapping_id are required query parameters."},
+                {"error": "user_id and case_mapping_id are required query parameters."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user, case_mapping = _get_user_and_mapping(
+        user, case_mapping, module = _get_user_and_mapping(
             {"user_id": user_id, "case_mapping_id": case_mapping_id}
         )
-        session = progress_tracker.get_active(user=user, case_mapping=case_mapping)
+        session = progress_tracker.get_active(user=user, case_mapping=case_mapping, module=module)
 
         if not session:
             return Response(
-                {"detail": "No active session found for this user and case mapping."},
+                {"error": "No active session found for this user and case mapping."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -225,25 +257,44 @@ class ConceptProgressViewSet(viewsets.GenericViewSet):
         
         cm_id = request.query_params.get("case_mapping_id")
         case_mapping = CaseMappings.objects.filter(uid=cm_id).first() if cm_id else None
+        module = None
+        jobaid_session = None
 
-        return export_concept_sessions_csv(client=client, case_mapping=case_mapping, days=days)
+        if cm_id and not case_mapping:
+            module = Module.objects.filter(uid=cm_id).first()
+            if not module:
+                jobaid_session = JobAidSession.objects.filter(uid=cm_id).first()
+
+        return export_concept_sessions_csv(
+            client=client,
+            case_mapping=case_mapping,
+            module=module,
+            jobaid_session=jobaid_session,
+            days=days,
+        )
     
     @action(detail=False, methods=["post"], url_path="track-jobaid-session-completion",
         permission_classes=[IsAuthenticatedClient, IsAuthenticatedUser],
             )
     def track_jobaid_session_completion(self, request):
         """Helper to mark a ConceptSession as completed based on a JobaidSession."""
-        user_id = request.data.get("user_id")
-        jobaid_session_id = request.data.get("jobaid_session_id")
-        collection_id = request.data.get("collection_id")
-        if not user_id or not jobaid_session_id or not collection_id:
+        try:
+            user_id = request.data.get("user_id")
+            jobaid_session_id = request.data.get("jobaid_session_id")
+            collection_id = request.data.get("collection_id")
+            if not user_id or not jobaid_session_id or not collection_id:
+                return Response(
+                    {"error": "user_id, jobaid_session_id, and collection_id are required fields."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user = get_object_or_404(User, uid=user_id)
+            jobaid_session = get_object_or_404(JobAidSession, uid=jobaid_session_id)
+            collection = get_object_or_404(Collection, uid=collection_id)
+            session = progress_tracker.log_jobaid_attempt(user=user, jobaid_session=jobaid_session, collection=collection)
+            return Response({"session_id": session.uid, "status": session.status}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception(f"Error in track_jobaid_session_completion: {e}")
             return Response(
-                {"detail": "user_id, jobaid_session_id, and collection_id are required fields."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "An error occurred while tracking jobaid session completion."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        user = get_object_or_404(User, uid=user_id)
-        jobaid_session = get_object_or_404(JobAidSession, uid=jobaid_session_id)
-        collection = get_object_or_404(Collection, uid=collection_id)
-        session = progress_tracker.log_jobaid_attempt(user=user, jobaid_session=jobaid_session, collection=collection)
-        return Response({"session_id": session.uid, "status": session.status}, status=status.HTTP_200_OK)
-
