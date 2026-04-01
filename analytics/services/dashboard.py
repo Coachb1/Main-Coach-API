@@ -5,7 +5,7 @@ High-level aggregations for the admin dashboard and REST API.
 """
 
 from django.apps import apps
-from django.db.models import Count, Avg, Min, Max, Q, F, Value
+from django.db.models import Count, Avg, Min, Max, Q, F, Value, Case, When, CharField
 from django.db.models.functions import Concat
 
 from analytics.models import Event
@@ -170,8 +170,12 @@ def clicks_by_day(days: int = 7) -> list[dict]:
 
 def concept_session_stats(
     *,
+    client=None,
+    days: int = None,
     case_mapping=None,
     user=None,
+    module=None,
+    jobaid_session=None,
 ) -> dict:
     """
     Aggregate completion stats across ConceptSessions.
@@ -182,29 +186,55 @@ def concept_session_stats(
     Returns:
         dict with keys: summary, by_case_mapping, user_detail, meta
     """
+    from identities.helpers import get_users_by_client
     ConceptSession = apps.get_model("tests", "ConceptSession")
 
-    qs = concept_session_qs(case_mapping=case_mapping, user=user)
+    users_to_filter = []
+    if client:
+        users_to_filter = get_users_by_client(tenant_id=client.tenant_id, client_id=client.uid)
+    elif user:
+        users_to_filter = [user]
+
+    qs = concept_session_qs(
+        case_mapping=case_mapping,
+        users=users_to_filter,
+        days=days,
+        module=module,
+        jobaid_session=jobaid_session,
+    )
 
     # --- Per-case-mapping rollup ---
     by_mapping = (
-        qs.values(
-            "case_mapping__id",
-            "case_mapping__uid",
-        )
-        .annotate(
+        qs.annotate(
+            case_mapping_str=Case(
+                When(case_mapping__isnull=False, then=Concat(F("case_mapping__collection__collection_name"), Value(" > "), F("case_mapping__tab_name"))),
+                When(case_module__isnull=False, then=F("case_module__title")),
+                When(jobaid_attempted__isnull=False, then=F("jobaid_attempted__job_aid__title")),
+                default=Value("N/A"),
+                output_field=CharField()
+            ),
+            item_type=Case(
+                When(case_mapping__isnull=False, then=Value("case_mapping")),
+                When(case_module__isnull=False, then=Value("case_module")),
+                When(jobaid_attempted__isnull=False, then=Value("jobaid_attempted")),
+                default=Value("unknown"),
+                output_field=CharField()
+            ),
+            item_uid=Case(
+                When(case_mapping__isnull=False, then=F("case_mapping__uid")),
+                When(case_module__isnull=False, then=F("case_module__uid")),
+                When(jobaid_attempted__isnull=False, then=F("jobaid_attempted__uid")),
+                default=Value(None),
+                output_field=CharField()
+            ),
+        ).values("case_mapping_str", "item_type", "item_uid").annotate(
             total_sessions=Count("id"),
             completed=Count("id", filter=Q(status=ConceptSession.Status.COMPLETED)),
             in_progress=Count("id", filter=Q(status=ConceptSession.Status.IN_PROGRESS)),
             started=Count("id", filter=Q(status=ConceptSession.Status.STARTED)),
             avg_completion=Avg("completion_percentage"),
             first_started=Min("started_at"),
-            last_activity=Max("last_activity_at"),
-            case_mapping_str=Concat(
-                    F("case_mapping__tab_name"),
-                    Value(" > "),
-                    F("case_mapping__collection__collection_name"),
-                ),        )
+            last_activity=Max("last_activity_at"))
         .order_by("-total_sessions")
     )
 
@@ -254,6 +284,7 @@ def concept_session_stats(
         "user_detail": user_detail,
         "meta": {
             "case_mapping_id": str(case_mapping.uid) if case_mapping else None,
-            "scope": "user" if user else "global",
+            "scope": "client" if client else "user" if user else "global",
+            "days": days,
         },
     }

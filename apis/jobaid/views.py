@@ -254,7 +254,7 @@ class JobAidViewSet(ApiViewSet,
 
             return Response(
                 {
-                    'session_id': session.id,
+                    'session_id': session.uid,
                     'report_url': session.report_url if jobaid.is_report else None,
                     'generated_prompt': generated_prompt_output,
                     'output': output

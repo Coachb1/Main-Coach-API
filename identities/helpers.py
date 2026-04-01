@@ -2,7 +2,7 @@ import logging
 
 from identities.models import Identity
 from tenants.models import Tenant
-from users.models import User
+from users.models import ClientUserInfo, User
 
 logger = logging.getLogger(__name__)
 
@@ -89,3 +89,18 @@ def get_identity_value_by_tenant(tenant_id, all_types=False):
 
     # Filter by specific tenant_id and return the first match (or None if not found)
     return all_identity_types.filter(tenant_id=tenant_id).first()
+
+
+def get_users_by_client(tenant_id, client_id, identity_type="deepchat_unique_id"):
+    client = ClientUserInfo.objects.filter(tenant_id=tenant_id, uid=client_id).first()
+    if not client:
+        return []
+    emails = client.member_emails.split(',')
+    users = []
+    tenant = Tenant.objects.filter(uid=tenant_id).first()
+    for email in emails:
+        email = email.strip()
+        user = get_user_via_identity(tenant=tenant, identity_type=identity_type, identity_value=email)
+        if user:
+            users.append(user)
+    return users

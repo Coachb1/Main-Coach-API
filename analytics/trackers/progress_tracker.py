@@ -14,12 +14,18 @@ from django.apps import apps
 from django.utils.timezone import now
 
 from .base import BaseTracker
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _session_model():
     """Lazy import of ConceptSession to avoid circular imports."""
     return apps.get_model("tests", "ConceptSession")
 
+def _jobaid_session_model():
+    """Lazy import of JobAidSession to avoid circular imports."""
+    return apps.get_model("jobaid", "JobAidSession")
 
 class ProgressTracker(BaseTracker):
     """
@@ -57,7 +63,7 @@ class ProgressTracker(BaseTracker):
     #  Core lifecycle methods                                             #
     # ------------------------------------------------------------------ #
 
-    def record(self, *, user, case_mapping, completion_percentage: float = 0.0, **kwargs):
+    def record(self, *, user, case_mapping, module, completion_percentage: float = 0.0, **kwargs):
         """
         BaseTracker contract implementation.
 
@@ -67,16 +73,17 @@ class ProgressTracker(BaseTracker):
         """
         pct = float(completion_percentage)
         if pct >= 100:
-            return self.complete(user=user, case_mapping=case_mapping)
+            return self.complete(user=user, case_mapping=case_mapping, module=module)
         if pct == 0:
-            return self.start(user=user, case_mapping=case_mapping)
+            return self.start(user=user, case_mapping=case_mapping, module=module)
         return self.update_progress(
             user=user,
             case_mapping=case_mapping,
+            module=module,
             completion_percentage=pct,
         )
 
-    def start(self, *, user, case_mapping):
+    def start(self, *, user, case_mapping, module):
         """
         Create a new active session or return the existing active one.
 
@@ -89,7 +96,7 @@ class ProgressTracker(BaseTracker):
         ConceptSession = _session_model()
 
         # Return existing active session if present
-        active = self._get_active(user, case_mapping)
+        active = self._get_active(user, case_mapping, module)
         if active:
             return active
 
@@ -98,12 +105,14 @@ class ProgressTracker(BaseTracker):
         ConceptSession.objects.filter(
             user=user,
             case_mapping=case_mapping,
+            case_module=module,
             is_active=True,
         ).update(is_active=False)
 
         return ConceptSession.objects.create(
             user=user,
             case_mapping=case_mapping,
+            case_module=module,
             status=ConceptSession.Status.STARTED,
             completion_percentage=0.0,
             is_active=True,
@@ -114,6 +123,7 @@ class ProgressTracker(BaseTracker):
         *,
         user,
         case_mapping,
+        module,
         completion_percentage: float,
     ):
         """
@@ -136,11 +146,11 @@ class ProgressTracker(BaseTracker):
 
         # Shortcut: treat 100% as a completion
         if pct >= 80:
-            return self.complete(user=user, case_mapping=case_mapping)
+            return self.complete(user=user, case_mapping=case_mapping, module=module)
 
-        session = self._get_active(user, case_mapping)
+        session = self._get_active(user, case_mapping, module)
         if not session:
-            session = self.start(user=user, case_mapping=case_mapping)
+            session = self.start(user=user, case_mapping=case_mapping, module=module)
 
         session.completion_percentage = pct
         session.status = ConceptSession.Status.IN_PROGRESS
@@ -148,7 +158,7 @@ class ProgressTracker(BaseTracker):
         session.save(update_fields=["completion_percentage", "status", "last_activity_at"])
         return session
 
-    def complete(self, *, user, case_mapping):
+    def complete(self, *, user, case_mapping, module):
         """
         Mark the active session as completed and seal it.
 
@@ -166,7 +176,7 @@ class ProgressTracker(BaseTracker):
         """
         ConceptSession = _session_model()
 
-        session = self._get_active(user, case_mapping)
+        session = self._get_active(user, case_mapping, module)
 
         if not session:
             # Already completed — return most recent record
@@ -174,6 +184,7 @@ class ProgressTracker(BaseTracker):
                 ConceptSession.objects.filter(
                     user=user,
                     case_mapping=case_mapping,
+                    case_module=module,
                     status=ConceptSession.Status.COMPLETED,
                 )
                 .order_by("-started_at")
@@ -188,20 +199,48 @@ class ProgressTracker(BaseTracker):
             "status", "completion_percentage", "ended_at", "is_active", "last_activity_at"
         ])
         return session
+    
+    def log_jobaid_attempt(self, *, user, jobaid_session, collection):
+        """
+        Log a JobAid attempt as a ConceptSession.
+        """
+        ConceptSession = _session_model()
+        if not jobaid_session:
+            return None
 
+        session, created = ConceptSession.objects.get_or_create(
+            user=user,
+            jobaid_attempted=jobaid_session,
+            defaults={
+                "status": ConceptSession.Status.COMPLETED,
+                "completion_percentage": 100.0,
+                "ended_at": now(),
+                "is_active": False,
+                "meta_data": {
+                    "jobaid_session_id": jobaid_session.uid,
+                    "jobaid_id": jobaid_session.id,
+                    "jobaid_title": jobaid_session.job_aid.title,
+                    "collection_name": collection.collection_name if collection else None,
+                    "collection_id": collection.uid if collection else None,
+                    }
+            }
+        )
+        logger.info(f"Logged JobAid attempt as ConceptSession: user={user.id}, jobaid_session={jobaid_session.uid}, created={created}")
+        return session
+        
     # ------------------------------------------------------------------ #
     #  Query helpers                                                      #
     # ------------------------------------------------------------------ #
 
-    def get_active(self, *, user, case_mapping):
+    def get_active(self, *, user, case_mapping, module):
         """Return the current active session or None."""
-        return self._get_active(user, case_mapping)
+        return self._get_active(user, case_mapping, module)
 
-    def get_latest(self, *, user, case_mapping):
+    def get_latest(self, *, user, case_mapping, module):
         """Return the most recent session (any status) or None."""
         ConceptSession = _session_model()
         return (
-            ConceptSession.objects.filter(user=user, case_mapping=case_mapping)
+            ConceptSession.objects.filter(user=user, case_mapping=case_mapping, case_module=module)
             .order_by("-started_at")
             .first()
         )
@@ -225,10 +264,11 @@ class ProgressTracker(BaseTracker):
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _get_active(user, case_mapping):
+    def _get_active(user, case_mapping, module):
         ConceptSession = _session_model()
         return ConceptSession.objects.filter(
             user=user,
             case_mapping=case_mapping,
+            case_module=module,
             is_active=True,
         ).first()
