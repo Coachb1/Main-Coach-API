@@ -13,6 +13,9 @@ from users.models import ClientUserInfo, User
 from users.permissions import IsAuthenticatedUser, IsSuperAdmin
 from .serializers import EventSerializer
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class EventViewSet(viewsets.GenericViewSet):
     queryset = Event.objects.all()
@@ -102,6 +105,7 @@ class EventViewSet(viewsets.GenericViewSet):
             return zipped_reports
 
         except Exception as e:
+            logger.exception(f"Error exporting analytics data: {e}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
