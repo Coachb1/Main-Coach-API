@@ -17,9 +17,8 @@ urlpatterns = [
     path("api/", include("apis.urls")),
     path('custom-admin/', admin.site.urls),
     path('admin/clearcache/', include('clearcache.urls')),
-    path("docs/", docs_page, name="docs")
-
-    
+    path("docs/", docs_page, name="docs"),
+    path("client-api/", include("client_apis.apis.urls")),
 ]
 
 if not settings.DEBUG:
