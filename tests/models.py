@@ -940,6 +940,14 @@ class ConceptSession(MyModel):
         blank=True
     )
 
+    case_module = models.ForeignKey(
+        Module,
+        related_name="concept_sessions",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
     status = models.CharField(
         max_length=20,
         choices=Status.choices,

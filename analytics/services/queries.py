@@ -52,6 +52,8 @@ def event_qs(
 def concept_session_qs(
     *,
     case_mapping=None,
+    module=None,
+    jobaid_session=None,
     status: str = None,
     is_active: bool = None,
     users=[],
@@ -64,7 +66,7 @@ def concept_session_qs(
     All parameters are optional and combinable.
     """
     ConceptSession = apps.get_model("tests", "ConceptSession")
-    qs = ConceptSession.objects.select_related("user", "case_mapping")
+    qs = ConceptSession.objects.select_related("user", "case_mapping").select_related("case_module").select_related("jobaid_attempted")
 
     if days:
         since = now() - timedelta(days=days)
@@ -74,13 +76,17 @@ def concept_session_qs(
         qs = qs.filter(user__in=users)
     if case_mapping:
         qs = qs.filter(case_mapping=case_mapping)
+    if module:
+        qs = qs.filter(case_module=module)
+    if jobaid_session:
+        qs = qs.filter(jobaid_attempted=jobaid_session)
     if status:
         qs = qs.filter(status=status)
     if is_active is not None:
         qs = qs.filter(is_active=is_active)
 
-    if gte_completion_percent:
-        qs = qs.filter(completion_percentage__gte=gte_completion_percent)
+    # if gte_completion_percent:
+    qs = qs.filter(status__in=["completed", "in_progress"])
     return qs
 
 
