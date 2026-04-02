@@ -389,7 +389,7 @@ class ExcelExporter:
         summary_sheet: bool = True,      # add a 📋 Summary tab
     ):
         self.title          = title
-        self.theme          = theme or Theme.navy()
+        self.theme          = theme or Theme.teal()
         self.meta           = meta or {}
         self.summary_sheet  = summary_sheet
         self._sheets: list[Sheet] = []
