@@ -119,15 +119,15 @@ def build_pillar_sheet(name: str, subtitle: str, rows):
         name=name,
         subtitle=subtitle,
         columns=[
-            Column("Pillar", width=28, bold_col=True),
-            Column("Total Clicks", width=14, fmt="#,##0", align="center"),
+            Column("Focus areas", width=28, bold_col=True),
+            Column("Total Number of Attempts", width=20, fmt="#,##0", align="center"),
             Column("Last Activity", width=16, align="center"),
             Column("Usage %", width=12, fmt="0.00", align="center"),
         ],
         rows=rows,
         summary={
             "TOTAL": "",
-            " ": f"=SUM(B4:B{len(rows) + 4})",
+            " ": f"=SUM(B4:B{len(rows) + 3})",
             "  ": "",
             "   ": "",
         },
@@ -209,7 +209,7 @@ def build_session_sheet(name: str, subtitle: str, rows):
         columns=[
             Column("User Name", width=24, bold_col=True),
             Column("Email", width=30),
-            Column("Pillar", width=22),
+            Column("Focus areas", width=22),
             Column("Module", width=24),
             Column("Completion %", width=14, align="center"),
             Column("Use Case", width=26),
@@ -328,7 +328,7 @@ def export_pillar_events_csv(
 
     response = make_csv_response(csv_filename("analytics_events", days=days))
     writer = csv.writer(response)
-    writer.writerow(["Pillar", "Total Clicks", "Last Activity", "Usage %"])
+    writer.writerow(["Focus areas", "Total Clicks", "Last Activity", "Usage %"])
     writer.writerows(rows)
     return response
 
@@ -365,7 +365,7 @@ def export_concept_sessions_csv(
     writer.writerow([
         "User Name",
         "Email",
-        "Pillar",
+        "Focus areas",
         "Module",
         "Completion %",
         "Use case Logged",
@@ -436,8 +436,8 @@ def export_analytics_combined_excel(
     pillar_rows = build_pillar_rows(pillars, total_clicks)
 
     pillar_sheet = build_pillar_sheet(
-        name="📌 Pillar Events",
-        subtitle=f"Click activity by pillar — last {days} days",
+        name="📌 Aggregate Activity",
+        subtitle=f"Click activity by 'Focus areas' — last {days} days",
         rows=pillar_rows,
     )
 
@@ -461,8 +461,8 @@ def export_analytics_combined_excel(
     )
 
     session_sheet = build_session_sheet(
-        name="🧠 Concept Sessions",
-        subtitle="In-progress/completed concept sessions",
+        name="🧠 User level Reporting",
+        subtitle="In-progress/completed sessions",
         rows=session_rows,
     )
 
@@ -470,7 +470,7 @@ def export_analytics_combined_excel(
     return (
         ExcelExporter(
             title=f"Analytics Export — Last {days} days",
-            theme=Theme.navy(),
+            theme=Theme.teal(),
             meta={
                 "Period": f"{days} days",
                 "Client": str(client) if client else "All",
@@ -505,22 +505,22 @@ def export_pillar_events_excel(
     rows = build_pillar_rows(pillars, total_clicks)
 
     sheet = build_pillar_sheet(
-        name="📌 Pillars",
-        subtitle=f"Click activity by pillar — last {days} days",
+        name="📌 Aggregate Activity",
+        subtitle=f"Click activity by 'Focus areas' — last {days} days",
         rows=rows,
     )
 
     return (
         ExcelExporter(
-            title=f"Pillar Events — Last {days} days",
-            theme=Theme.navy(),
+            title=f"Aggregate Activity — Last {days} days",
+            theme=Theme.teal(),
             meta={
                 "Period": f"{days} days",
                 "Client": str(client) if client else "All",
             },
         )
         .add_sheet(sheet)
-        .to_django_response(excel_filename("pillar_events", days=days))
+        .to_django_response(excel_filename("aggregate_activity", days=days))
     )
 
 
@@ -551,16 +551,16 @@ def export_concept_sessions_excel(
     rows = build_session_rows(qs, client, case_module_pillar_mode="empty")
 
     sheet = build_session_sheet(
-        name="🧠 Sessions",
-        subtitle="In-progress/completed concept sessions",
+        name="🧠 User level Reporting",
+        subtitle="In-progress/completed sessions",
         rows=rows,
     )
 
     slug = f"_{case_mapping.uid}" if case_mapping else ""
     return (
         ExcelExporter(
-            title="User Concept Sessions",
-            theme=Theme.navy(),
+            title="User level Reporting",
+            theme=Theme.teal(),
             meta={
                 "Status": "In Progress/Completed",
                 "Client": str(client) if client else "All",
@@ -568,5 +568,5 @@ def export_concept_sessions_excel(
             },
         )
         .add_sheet(sheet)
-        .to_django_response(excel_filename("user_sessions", days=days, slug=slug))
+        .to_django_response(excel_filename("user_level_reporting", days=days, slug=slug))
     )
