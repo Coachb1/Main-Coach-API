@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'jobaid.apps.JobaidConfig',
     'company_iq.apps.CompanyIqConfig',
     'analytics.apps.AnalyticsConfig',
+    'client_apis.apps.ClientApisConfig',
 ]
 
 MIDDLEWARE = [
@@ -71,6 +72,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'client_apis.apis.middleware.APIKeyUsageLogMiddleware',
     
 
 ]
