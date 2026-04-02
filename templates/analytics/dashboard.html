@@ -146,12 +146,20 @@
         {% if selected_event_type and selected_event_type != "click" %} · {{ selected_event_type|title }} events{% endif %}
       </p>
     </div>
+    <div>
     <button id="exportBtn" class="btn-dark">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
       </svg>
-      Export CSV
+      Export
     </button>
+    <button id="exportBtnAll" class="btn-dark" title="export all event and user session data in one file">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+      </svg>
+      Export ALL
+    </button>
+    </div>
   </div>
 
   <!-- ── Filters ── -->
@@ -440,6 +448,13 @@
     const params = new URLSearchParams(new FormData(form));
     for (const [k, v] of [...params.entries()]) { if (!v) params.delete(k); }
     window.location.href = "{% url 'admin:analytics-export-csv' %}?" + params.toString();
+  });
+
+  document.getElementById("exportBtnAll").addEventListener("click", function () {
+    const form   = document.getElementById("filterForm");
+    const params = new URLSearchParams(new FormData(form));
+    for (const [k, v] of [...params.entries()]) { if (!v) params.delete(k); }
+    window.location.href = "{% url 'admin:analytics-export-combined-csv' %}?" + params.toString();
   });
 
   // Filter pill clear

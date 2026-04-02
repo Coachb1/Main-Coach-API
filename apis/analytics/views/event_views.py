@@ -5,11 +5,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from analytics.models import Event
+from analytics.services.export import export_events_csv
 from analytics.trackers import click_tracker
 from analytics.services import dashboard_stats, top_features, clicks_by_day
 from apis.analytics.serializers import EventSerializer, TrackEventSerializer
+from clients.permissions import IsAuthenticatedClient
 from users.models import ClientUserInfo, User
-from users.permissions import IsSuperAdmin
+from users.permissions import IsAuthenticatedUser, IsSuperAdmin
 
 
 class EventViewSet(viewsets.GenericViewSet):
@@ -88,3 +90,27 @@ class EventViewSet(viewsets.GenericViewSet):
             feature_path=feature_path,
         )
         return Response(data)
+    
+
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[IsAuthenticatedClient, IsAuthenticatedUser],
+        url_path="export-events"
+    )
+    def export_events(self, request):
+        try:
+            days = int(request.query_params.get("days", 7))
+        except ValueError:
+            days = 7
+
+        client_id = request.query_params.get("client_id")
+        client = ClientUserInfo.objects.filter(uid=client_id).first() if client_id else None
+        
+        return export_events_csv(
+            days=days, client=client,
+            feature=request.query_params.get("feature"),
+            feature_path=request.query_params.get("feature_path"),
+        )
+
+   

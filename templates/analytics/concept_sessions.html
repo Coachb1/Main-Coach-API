@@ -17,17 +17,23 @@
 <h1 class="page-title">User Sessions</h1>
 
 <p class="page-sub">
-{% if selected_case_mapping %}
-{{ selected_case_mapping }} · completion breakdown
+{% if selected_item %}
+{% if selected_item_type == "case_mapping" %}
+{{ selected_item }} · completion breakdown
+{% elif selected_item_type == "module" %}
+{{ selected_item.title }} · module completion breakdown
+{% elif selected_item_type == "jobaid" %}
+{{ selected_item.job_aid.title }} · job aid completion breakdown
+{% endif %}
 {% else %}
-All case mappings · completion overview
+All sessions · completion overview
 {% endif %}
 </p>
 
 </div>
 
 <a id="exportBtn" class="btn-dark">
-Export CSV
+Export
 </a>
 
 </div>
@@ -40,25 +46,51 @@ Export CSV
 <form method="get" id="filterForm">
 
 <div class="filter-row">
-
+<div class="filter-group">
+  <label class="filter-label">Date Range</label>
+  <select name="days" class="filter-select" onchange="this.form.submit()">
+    <option value="7"  {% if selected_days == 7  %}selected{% endif %}>Last 7 days</option>
+    <option value="14" {% if selected_days == 14 %}selected{% endif %}>Last 14 days</option>
+    <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+    <option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 days</option>
+  </select>
+</div>
 <div class="filter-group">
 
-<label class="filter-label">Case Mapping</label>
+<label class="filter-label">Session Type</label>
 
 <select name="case_mapping_id"
 class="filter-select"
 onchange="this.form.submit()">
 
-<option value="">All case mappings</option>
+<option value="">All sessions</option>
 
+<optgroup label="Case Mappings">
 {% for cm in all_case_mappings %}
-
 <option value="{{ cm.uid }}"
-{% if selected_case_mapping and selected_case_mapping.uid == cm.uid %}selected{% endif %}>
+{% if selected_item_type == "case_mapping" and selected_item and selected_item.uid == cm.uid %}selected{% endif %}>
 {{ cm }}
 </option>
-
 {% endfor %}
+</optgroup>
+
+<optgroup label="Modules">
+{% for mod in all_modules %}
+<option value="{{ mod.uid }}"
+{% if selected_item_type == "module" and selected_item and selected_item.uid == mod.uid %}selected{% endif %}>
+{{ mod.title }}
+</option>
+{% endfor %}
+</optgroup>
+
+<optgroup label="Job Aids">
+{% for jas in all_jobaid_sessions %}
+<option value="{{ jas.uid }}"
+{% if selected_item_type == "jobaid" and selected_item and selected_item.uid == jas.uid %}selected{% endif %}>
+{{ jas.job_aid.title }} ({{ jas.email }})
+</option>
+{% endfor %}
+</optgroup>
 
 </select>
 
@@ -91,7 +123,7 @@ onchange="this.form.submit()">
 </div>
 
 
-{% if selected_case_mapping or selected_client %}
+{% if selected_case_mapping or selected_client or selected_days %}
 
 <a href="{% url 'admin:analytics-concept-sessions' %}"
 class="filter-clear">
@@ -201,7 +233,7 @@ Started
 <div class="chart-card">
 
 <div class="chart-header">
-<span class="chart-title">Completion by Case Mapping</span>
+<span class="chart-title">Completion by Session Type</span>
 </div>
 
 <canvas id="mappingChart" height="200"></canvas>
@@ -217,10 +249,10 @@ Started
 
 <div class="table-header">
 
-<span class="table-title">Case Mapping Breakdown</span>
+<span class="table-title">Session Breakdown</span>
 
 <span class="stat-num">
-{{ data.by_case_mapping|length }} mappings
+{{ data.by_case_mapping|length }} sessions
 </span>
 
 </div>
@@ -231,7 +263,7 @@ Started
 <thead>
 
 <tr>
-<th>Case Mapping</th>
+<th>Session Type</th>
 <th class="right">Total</th>
 <th class="right">Completed</th>
 <th class="right">In Progress</th>
@@ -249,12 +281,16 @@ Started
 
 <td>
 
-<a href="{% url 'admin:analytics-concept-sessions' %}?case_mapping_id={{ row.case_mapping__uid }}"
+{% if row.item_uid %}
+<a href="{% url 'admin:analytics-concept-sessions' %}?case_mapping_id={{ row.item_uid }}"
 style="color:#2563EB;text-decoration:none;font-weight:500;">
 
 {{ row.case_mapping_str | default:"—" }}
 
 </a>
+{% else %}
+{{ row.case_mapping_str | default:"—" }}
+{% endif %}
 
 </td>
 
@@ -424,17 +460,20 @@ No session data available
 
   const params = new URLSearchParams();
 
-  const caseMappingId = "{{ selected_case_mapping.uid|default:'' }}";
+  const selectedItemUid = "{{ selected_item.uid|default:'' }}";
   const clientId = "{{ selected_client.uid|default:'' }}";
+  const days = "{{ selected_days|default:'' }}";
+  if (days) {
+    params.set("days", days);
+  }
 
-  if (caseMappingId) {
-    params.set("case_mapping_id", caseMappingId);
+  if (selectedItemUid) {
+    params.set("case_mapping_id", selectedItemUid);
   }
 
   if (clientId) {
     params.set("client_id", clientId);
   }
-
   const base = "{% url 'admin:analytics-concept-sessions-export' %}";
   document.getElementById("exportBtn").href =
     base + (params.toString() ? "?" + params.toString() : "");

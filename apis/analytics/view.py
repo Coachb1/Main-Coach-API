@@ -7,9 +7,14 @@ from django.shortcuts import render
 
 from analytics.models import Event
 from analytics.services import clicks_by_day, dashboard_stats, top_features
+from analytics.services.export import export_all_data_zip, export_analytics_combined_excel
+from clients.permissions import IsAuthenticatedClient
 from users.models import ClientUserInfo, User
-from users.permissions import IsSuperAdmin
+from users.permissions import IsAuthenticatedUser, IsSuperAdmin
 from .serializers import EventSerializer
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class EventViewSet(viewsets.GenericViewSet):
@@ -82,9 +87,58 @@ class EventViewSet(viewsets.GenericViewSet):
 
         data = dashboard_stats(days=days, client=client, user=user)
         return Response(data)
-
-
-
-
-
     
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticatedClient, IsAuthenticatedUser], url_path="export-all-analytics-data")
+    def export_events_and_collection_progress(self, request):
+        try:
+            days = request.query_params.get('days', "7")
+            try:
+                days = int(days)
+            except ValueError:
+                days = 7
+
+            client_id = request.query_params.get('client_id')
+
+            client = get_object_or_404(ClientUserInfo, uid=client_id) if client_id else None
+
+            zipped_reports = export_analytics_combined_excel(days=days, client=client)
+            return zipped_reports
+
+        except Exception as e:
+            logger.exception(f"Error exporting analytics data: {e}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+DOCUMENTATION_LINKS = {
+    "AIADOPTS": [
+        {
+            "title": "AI Adopts Doc",
+            "url": "/api/v1/ai-adopts-doc",
+            "description": "Ai adopts",
+            "updated_at": "2026-03-20",
+            "is_pinned": True,
+            "is_external": False
+        }
+    ],
+    
+}
+
+# views.py
+def docs_page(request):
+    grouped_docs = DOCUMENTATION_LINKS
+
+    pinned_docs = [
+        doc
+        for docs in DOCUMENTATION_LINKS.values()
+        for doc in docs
+        if doc.get("is_pinned")
+    ]
+
+    return render(request, "admin/docs.html", {
+        "grouped_docs": grouped_docs,
+        "pinned_docs": pinned_docs,
+    })
+
+
+def ai_adopts_doc(request):
+    return render(request, "docs/aiadopts.html")

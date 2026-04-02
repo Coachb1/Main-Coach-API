@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     "drf_spectacular_sidecar",
     'analytics.apps.AnalyticsConfig',
+    'client_apis.apps.ClientApisConfig',
 ]
 
 MIDDLEWARE = [
@@ -73,6 +74,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'client_apis.apis.middleware.APIKeyUsageLogMiddleware',
     
 
 ]
