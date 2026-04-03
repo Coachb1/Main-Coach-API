@@ -7,6 +7,8 @@ from django.conf.urls.static import static
 
 from apis.analytics.view import docs_page
 
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
 
 ok = JsonResponse({"ok": True})
 
@@ -19,6 +21,9 @@ urlpatterns = [
     path('admin/clearcache/', include('clearcache.urls')),
     path("docs/", docs_page, name="docs"),
     path("client-api/", include("client_apis.apis.urls")),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/swagger/", SpectacularSwaggerView.as_view(url_name="schema")),
+    path("api/docs/redoc/", SpectacularRedocView.as_view(url_name="schema")),
 ]
 
 if not settings.DEBUG:
