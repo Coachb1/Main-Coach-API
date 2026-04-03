@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     'company_iq.apps.CompanyIqConfig',
     'analytics.apps.AnalyticsConfig',
     'client_apis.apps.ClientApisConfig',
+    'drf_spectacular',
+    "drf_spectacular_sidecar",
 ]
 
 MIDDLEWARE = [
@@ -181,8 +183,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    "SECURITY": [{"BearerAuth": []}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        },
+    },
+}
+
 
 # AUTH_USER_MODEL = "users.User"
 

@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from commons.db.utils import AdminChangePreviewMixin, render_scrollable_text
 from identities.models import Identity
 from tenants.models import Tenant
 from .models import (BotAttribute, ClientResource, LibraryBotConfig, PortalPageConfig, SignatureBot, ClientUserInfo, CoachCoacheeMentorMenteeProfile,BotAndUserMapping, CoachCoacheeConnection
@@ -74,42 +75,73 @@ class CoachRecommendationsAdmin(TenantAwareModelAdmin):
         return obj.user_profile.email
     get_user_profile_email.admin_order_field = 'user_profile__email'
     get_user_profile_email.short_description = 'User Profile Email'
-    
+  
+# ============================================================================
+# 🔹 Library Bot Configuration Inline
+# Controls Library / Learning Bot behavior for a client
+# ============================================================================
 class LibraryBotConfigInline(admin.StackedInline):
     model = LibraryBotConfig
     form = LibraryBotConfigForm
     extra = 1
     can_delete = False
     show_change_link = True
+
     fieldsets = (
-        ("Configuration", {
-            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls", "announcements_section", "feature_boxs", "card_button_config")
+        ("📚 Core Library Configuration", {
+            "description": "Controls feature visibility and default behavior of the Library Bot.",
+            "fields": ("bot_config", "show_certification_badge", "default_filters", "feature_and_button_controls", "announcements_section", "feature_boxs", "card_button_config"),
+
         }),
-        ("Leaderboard Settings", {
-            "fields": ("leaderboard_report_protected", "leaderboard_report_password")
+        ("🏆 Leaderboard Protection", {
+            "fields": (
+                "leaderboard_report_protected",
+                "leaderboard_report_password",
+            ),
         }),
-        ("AI Pulse Settings", {
-            "fields": ("ai_pulse_report_protected", "ai_pulse_report_password")
+        ("📊 AI Pulse Protection", {
+            "fields": (
+                "ai_pulse_report_protected",
+                "ai_pulse_report_password",
+            ),
         }),
-        ("Ideaboard Settings", {
-            "fields": ("ideaboard_report_protected", "ideaboard_report_password")
+        ("💡 Ideaboard Protection", {
+            "fields": (
+                "ideaboard_report_protected",
+                "ideaboard_report_password",
+            ),
         }),
         ("Login Settings", {
             "fields": ("login_view", "login_dashboard", "access_password")
         }),
     )
 
+
+# ============================================================================
+# 🔹 Portal / Simulation Page Configuration Inline
+# Controls Simulation UI & report protection
+# ============================================================================
 class PortalPageConfigInline(admin.StackedInline):
     model = PortalPageConfig
     extra = 0
     can_delete = True
     show_change_link = True
+
     fieldsets = (
-        ("Configuration", {
-            "fields": ("bot_config", "feature_and_button_controls")
+        ("🧪 Simulation UI Configuration", {
+            "fields": (
+                "bot_config",
+                "feature_and_button_controls",
+            ),
         }),
-        ("Report Settings", {
-            "fields": ("simulation_report_protected", "simulation_report_password")
+        ("🔒 Simulation Report Security", {
+            "fields": (
+                "simulation_report_protected",
+                "simulation_report_password",
+            ),
+        }),
+        ("🔐 Authentication", {
+            "fields": ("login_view",),
         }),
     )
 
@@ -136,18 +168,277 @@ class ClientResourceAdmin(admin.ModelAdmin):
 
     clients.short_description = "Clients"
 
-class ClientUserInfoAdmin(TenantAwareModelAdmin):
-    form = ClientUserInfoForm
-    change_list_template = "admin/clientuserinfo/change_list.html"  # custom template for button
-    list_per_page = 10
-    list_display = ('id','uid','client_name','domain_name', "client_logo", 'widget_access_code','ask_access_code','is_repeat','member_emails','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','use_skills_from_skill_bank','allow_audio_interactions','make_new_user_in_trail','allow_paste_answer','send_profile_for_reapproval')
-    list_filter = ('client_name',)
-    search_fields = ('client_name','domain_name','uid')
-    list_editable = ('domain_name', "client_logo", 'is_repeat','member_emails','ask_access_code','email_address_list','restricted_ids','demo_ids','accessed_bot_ids','coach_skills','coach_expertise','departments','restricted_pages','restricted_features','allowed_ips','allow_audio_interactions','make_new_user_in_trail','ui_information','help_text','heading','sub_heading','tag_line','excluded_users','allow_paste_answer','use_skills_from_skill_bank','send_profile_for_reapproval')
-    ordering = ('-id',)
-    filter_horizontal = ('assigned_tests','assigned_bots', 'collections')
-    inlines = [LibraryBotConfigInline, PortalPageConfigInline]
+# ============================================================================
+# 🔹 ClientUserInfo Admin
+# Master policy & configuration unit for a client
+# ============================================================================
+def is_superadmin(user):
+        return user.is_superuser or user.groups.filter(name="Platform Admin").exists()
 
+class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
+    """
+    ClientUserInfo is the SINGLE SOURCE OF TRUTH for:
+    - User access
+    - Feature permissions
+    - Widget behavior
+    - Simulation limits
+    - Library & coaching access
+    """
+    form = ClientUserInfoForm
+
+    change_list_template = "admin/clientuserinfo/change_list.html"
+    list_per_page = 20
+
+    # ------------------------------------------------------------------------
+    # 📋 List View
+    # ------------------------------------------------------------------------
+    list_display = (
+        "id",
+        "uid",
+        "client_name",
+        "domain_name",
+        "widget_access_code",
+        "ask_access_code",
+        "is_active",
+        "is_repeat",
+        "number_of_conversation_per_month",
+        "test_per_month",
+        "member_emails_view",
+        "email_address_list_view",
+        "demo_ids_view",
+        "restricted_ids_view",
+    )
+
+    list_filter = ("client_name", "is_active")
+    search_fields = ("client_name", "domain_name", "uid")
+    ordering = ("-id",)
+
+    # ------------------------------------------------------------------------
+    # ✏️ Inline Editable Fields (Ops Friendly)
+    # ------------------------------------------------------------------------
+    list_editable = (
+        "domain_name",
+        "is_repeat",
+        "ask_access_code",
+        "is_active",
+        "number_of_conversation_per_month",
+        "test_per_month",
+    )
+
+    # ------------------------------------------------------------------------
+    # 🔗 Many-to-Many Controls
+    # ------------------------------------------------------------------------
+    filter_horizontal = (
+        "assigned_tests",
+        "assigned_bots",
+        "collections",
+    )
+
+    # ------------------------------------------------------------------------
+    # 🧩 Inlines
+    # ------------------------------------------------------------------------
+    inlines = [
+        LibraryBotConfigInline,
+        PortalPageConfigInline,
+    ]
+
+    
+    # -------- MEMBER EMAILS --------
+    def member_emails_view(self, obj):
+        return render_scrollable_text(
+            obj.member_emails,
+            tooltip="Emails of members who have access to this client"
+        )
+    member_emails_view.short_description = "Member Emails"
+
+    # -------- EMAIL ADDRESS LIST --------
+    def email_address_list_view(self, obj):
+        return render_scrollable_text(
+            obj.email_address_list,
+            tooltip="Allowed email addresses for login / access"
+        )
+    email_address_list_view.short_description = "Allowed Emails"
+
+    # -------- DEMO IDS --------
+    def demo_ids_view(self, obj):
+        return render_scrollable_text(
+            obj.demo_ids,
+            tooltip="Demo IDs mapped to this client"
+        )
+    demo_ids_view.short_description = "Demo IDs"
+
+    # -------- RESTRICTED IDS --------
+    def restricted_ids_view(self, obj):
+        return render_scrollable_text(
+            obj.restricted_ids,
+            tooltip="IDs explicitly restricted from access"
+        )
+    restricted_ids_view.short_description = "Restricted IDs"
+
+
+    
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = ['id','uid', 'created', 'updated']
+
+        # 🚨 High-impact fields – protect unless SuperAdmin
+        dangerous_fields = [
+            "widget_access_code",
+            "domain_name",
+            "allowed_ips",
+            "universal_bot_config",
+            "webhook_secret",
+            "webhook_token",
+        ]
+
+        if not is_superadmin(request.user):
+            readonly.extend(dangerous_fields)
+
+        return readonly
+
+
+    # ------------------------------------------------------------------------
+    # 🧭 Fieldsets (Detail Page)
+    # ------------------------------------------------------------------------
+    def get_fieldsets(self, request, obj=None):
+        """
+        Ensures:
+        - All known fields are grouped cleanly
+        - Any new / missed fields automatically go under 'Others (Auto)'
+        """
+
+        declared_fieldsets = [
+            ("📌 Core Identification", {
+                "fields": (
+                    'id',
+                    "uid",
+                    "deleted",
+                    "tenant_id",
+                    "client_name",
+                    "owner_id",
+                    "domain_name",
+                    "is_active",
+                    "company_information",
+                    "client_logo",
+
+                )
+            }),
+            ("👥 Membership Management", {
+                "fields": (
+                    "member_emails",
+                    "member_mob_numbers",
+                    "member_user_ids",
+                    "excluded_users",
+                    "restricted_ids",
+                    "demo_ids",
+                    "make_new_user_in_trail"
+                )
+            }),
+            ("🧠 Bot Creation Permissions", {
+                "fields": (
+                    "avatar_bot_creation",
+                    "feedback_bot_creation",
+                    "subject_matter_bot_creation",
+                )
+            }),
+            ("🎙 Interaction & UX Controls", {
+                "fields": (
+                    "allow_audio_interactions",
+                    "allow_paste_answer",
+                    "session_context",
+                    "button_controls",
+                )
+            }),
+            ("📊 Limits & Usage Controls", {
+                "fields": (
+                    "number_of_conversation_per_month",
+                    "test_per_month",
+                    "is_repeat",
+                )
+            }),
+            ("🧪 Simulation & Reporting", {
+                "fields": (
+                    "report_on",
+                    "show_recommendations",
+                    "email_address_list",
+                )
+            }),
+            ("🧑‍🏫 Coach / Directory Config", {
+                "fields": (
+                    "coach_skills",
+                    "coach_expertise",
+                    "departments",
+                    "coach_mentor_previledge",
+                    "is_coach_mentor_previledge",
+                )
+            }),
+            ("🌐 Widget & Branding", {
+                "fields": (
+                    "heading",
+                    "sub_heading",
+                    "tag_line",
+                    "ui_information",
+                    "widget_access_code",
+                    "help_text",
+                    "ask_access_code",
+                )
+            }),
+            ("🔔 Webhooks & Integrations", {
+                "fields": (
+                    "webhook_enabled",
+                    "webhook_url",
+                    "webhook_secret",
+                    "webhook_token",
+                )
+            }),
+            ("⚙️ Advanced Controls", {
+                "classes": ("collapse",),
+                "fields": (
+                    "restricted_pages",
+                    "restricted_features",
+                    "allowed_ips",
+                    "use_skills_from_skill_bank",
+                    "send_profile_for_reapproval",
+                    "attributes",
+                    "required_form_fields",
+                    "deepdive_accessed_emails",
+                    "accessed_bot_ids",
+                    "universal_bot_config",
+                    "leaderboard_report_protected",
+                    "leaderboard_report_password"
+                )
+            }),
+        ]
+
+        # -------------------------------
+        # AUTO-CAPTURE ANY NEW FIELDS
+        # -------------------------------
+        all_model_fields = {
+            f.name for f in self.model._meta.get_fields()
+            if f.editable and not f.many_to_many and not f.one_to_many
+        }
+
+        used_fields = set()
+        for _, opts in declared_fieldsets:
+            used_fields.update(opts.get("fields", []))
+
+        remaining_fields = sorted(all_model_fields - used_fields)
+
+        if remaining_fields:
+            declared_fieldsets.append((
+                "🧩 Others (Auto)", {
+                    "classes": ("collapse",),
+                    "fields": tuple(remaining_fields),
+                }
+            ))
+
+        return declared_fieldsets
+    
+    
+    # ------------------------------------------------------------------------
+    # 🛠 Custom Admin Dashboard
+    # Allows updating limits at tenant/client/user level
+    # ------------------------------------------------------------------------
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -207,89 +498,6 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
 
         return render(request, 'admin/clientdashboard.html', context)
 
-
-# class ClientUserInfoAdmin(TenantAwareModelAdmin):
-#     change_list_template = "admin/clientuserinfo/change_list.html"  # Custom template for extra button
-#     list_per_page = 10
-#     list_display = (
-#         'id', 'uid', 'client_name', 'domain_name', 'widget_access_code', 'ask_access_code',
-#         'is_repeat', 'member_emails', 'email_address_list', 'restricted_ids', 'demo_ids',
-#         'accessed_bot_ids', 'coach_skills', 'coach_expertise', 'departments',
-#         'restricted_pages', 'restricted_features', 'allowed_ips', 'ui_information',
-#         'help_text', 'heading', 'sub_heading', 'tag_line', 'excluded_users',
-#         'use_skills_from_skill_bank', 'allow_audio_interactions', 'make_new_user_in_trail',
-#         'allow_paste_answer', 'send_profile_for_reapproval'
-#     )
-#     list_editable = (
-#         'domain_name', 'is_repeat', 'member_emails', 'ask_access_code', 'email_address_list',
-#         'restricted_ids', 'demo_ids', 'accessed_bot_ids', 'coach_skills', 'coach_expertise',
-#         'departments', 'restricted_pages', 'restricted_features', 'allowed_ips',
-#         'allow_audio_interactions', 'make_new_user_in_trail', 'ui_information',
-#         'help_text', 'heading', 'sub_heading', 'tag_line', 'excluded_users',
-#         'allow_paste_answer', 'use_skills_from_skill_bank', 'send_profile_for_reapproval'
-#     )
-#     list_filter = ('client_name',)
-#     search_fields = ('client_name', 'domain_name', 'uid')
-#     ordering = ('-id',)
-
-#     def get_urls(self):
-#         urls = super().get_urls()
-#         custom_urls = [
-#             path('update-access-control/', self.admin_site.admin_view(self.client_dashboard), name='Update Access control'),
-#         ]
-#         return custom_urls + urls
-
-#     def client_dashboard(self, request):
-#         context = {
-#             'title': 'Update Test Per Month / Is Repeat',
-#         }
-
-#         type_ = request.GET.get('type')
-#         obj_id = request.GET.get('id')
-#         form = None
-#         obj = None
-
-#         if request.method == "POST":
-#             type_ = request.POST.get("type")
-#             obj_id = request.POST.get("object_id")
-
-#             if type_ == 'tenant':
-#                 obj = get_object_or_404(Tenant, pk=obj_id)
-#                 form = TenantForm(request.POST, instance=obj)
-#             elif type_ == 'client':
-#                 obj = get_object_or_404(ClientUserInfo, pk=obj_id)
-#                 form = ClientForm(request.POST, instance=obj)
-#             elif type_ == 'user':
-#                 obj = get_object_or_404(User, pk=obj_id)
-#                 form = UserForm(request.POST, instance=obj)
-
-#             if form and form.is_valid():
-#                 form.save()
-#                 messages.success(request, f"{type_.capitalize()} updated successfully.")
-#                 return HttpResponseRedirect(request.path)
-
-#         else:
-#             if type_ and obj_id:
-#                 if type_ == 'tenant':
-#                     obj = get_object_or_404(Tenant, pk=obj_id)
-#                     form = TenantForm(instance=obj)
-#                 elif type_ == 'client':
-#                     obj = get_object_or_404(ClientUserInfo, pk=obj_id)
-#                     form = ClientForm(instance=obj)
-#                 elif type_ == 'user':
-#                     obj = get_object_or_404(User, pk=obj_id)
-#                     form = UserForm(instance=obj)
-
-#         context.update({
-#             'type': type_,
-#             'object_id': obj_id,
-#             'form': form,
-#             'tenants': Tenant.objects.all(),
-#             'clients': ClientUserInfo.objects.all(),
-#             'users': User.objects.all(),
-#         })
-
-#         return render(request, 'admin/clientdashboard.html', context)
 
 
 class SnippetAccessCodeForm(forms.ModelForm):

@@ -218,7 +218,7 @@ class CourseAdminForm(forms.ModelForm):
     """
     upload_csv = forms.FileField(
         required=False,
-        help_text="Upload a CSV file to bulk create/update modules for this course."
+        help_text="Upload a CSV file to bulk create/update modules for this course. template: <a href='https://docs.google.com/spreadsheets/d/1B4CPCtWWLnalQ_TXxQGOKeYfwZ3CSdz13Ls98aNgXyU/edit?gid=785220442#gid=785220442' target='_blank'>Template</a>"
     )
 
     class Meta:
