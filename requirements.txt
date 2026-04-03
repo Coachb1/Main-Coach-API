@@ -96,3 +96,6 @@ google-cloud-bigquery==3.29.0
 google-api-core==2.24.2
 google-auth==2.40.2 
 ftfy==6.3.1
+drf-spectacular==0.29.0
+drf-spectacular-sidecar==2026.1.1
+setuptools<=81

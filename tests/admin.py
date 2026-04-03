@@ -1392,21 +1392,63 @@ class CollectionAdmin(admin.ModelAdmin):
     inlines = [CaseMappingsInline]
     change_list_template = "admin/collections/collections_change_list.html"
     change_form_template = "admin/collections/collection_change_form.html"
-    
+
     fieldsets = (
         ('Basic Information', {
-            'fields': ('uid','collection_name', 'heading')
+            'fields': ('uid', 'deleted', 'collection_name', 'heading'),
+            'description': format_html(
+                """
+                <div style="line-height:1.6;">
+                    <strong>Basic details about the collection</strong><br><br>
+                    • <b>UID</b>: Auto-generated and read-only<br>
+                    • <b>Heading</b>: Optional title displayed above the tab in UI
+                </div>
+                """
+            )
         }),
+
         ('Tab Configuration', {
             'fields': ('action_tab_info',),
-            'description': 'Configure the main tab appearance and behavior'
+            'description': format_html(
+                """
+                <div style="line-height:1.6;">
+                    <strong>Configure the main pillar/tab behavior</strong><br><br>
+
+                    <b>General Rules:</b><br>
+                    • If no case mappings exist → put tab type = <b>system</b><br>
+                    • For case mappings, <b>action_name</b> must start with:
+                    <code>CONCEPTS_</code><br><br>
+
+                    <b>Special Cases:</b><br>
+                    • For <b>JobAid buttons</b> → use <code>jobaid_uid</code> as action_name<br><br>
+
+                    <b>System Actions (NO prefix):</b><br>
+                    <ul style="margin:6px 0 0 18px;">
+                        <li><b>AI Case</b> → <code>SHOW_AI_CASES</code></li>
+                        <li><b>Landscape</b> → <code>AI_LANDSCAPE</code></li>
+                        <li><b>Propose</b> → <code>INTERNAL_TRANSFORMATION_PROPOSE</code></li>
+                        <li><b>Logs & Radar</b> → <code>INTERNAL_TRANSFORMATION_ALIGN</code></li>
+                    </ul>
+                </div>
+                """
+            )
         }),
-        ('Defaut Iframe Configuration', {
+
+        ('Default Iframe Configuration', {
             'fields': ('iframe_link', 'iframe_title', 'iframe_subtitle'),
-            'description': 'Configure the iframe panel for this collection'
+            'description': format_html(
+                """
+                <div style="line-height:1.6;">
+                    <strong>Iframe panel configuration</strong><br><br>
+                    • <b>Link</b>: URL to be embedded<br>
+                    • <b>Title</b>: Displayed above iframe<br>
+                    • <b>Subtitle</b>: Supporting text below title
+                </div>
+                """
+            )
         }),
-        
     )
+    readonly_fields = ('uid',)
 
     def action_tab_info_preview(self, obj):
         """Show a preview of the action_tab_info"""
