@@ -288,6 +288,25 @@ BUTTON_CONFIG_SCHEMA = {
                     'default': ''
                 }
             }
+        },
+
+        # --- Like Button Config ---
+        'like_button': {
+            'type': 'object',
+            'label': 'Like Button',
+            'help_text': 'To on/off the like button in our platform',
+            'properties': {
+                'show': {
+                    'type': 'boolean',
+                    'label': 'Show Button',
+                    'default': True
+                },
+                'label': {
+                    'type': 'string',
+                    'label': 'Button Label',
+                    'default': ''
+                }
+            }
         }
     }
 }
