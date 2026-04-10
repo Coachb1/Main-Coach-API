@@ -185,3 +185,6 @@ cython_debug/
 uv.lock
 pyproject.toml
 
+.cred_json/
+.cred/
+.cred
