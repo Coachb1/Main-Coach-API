@@ -3494,6 +3494,153 @@ Django Admin
 <div class="note">
   <strong>📌 Pattern</strong> Every feature in <code>feature_and_button_controls</code> follows the same shape: <code>{ "show": bool, "label": string }</code>. The <code>analytics_report_button</code> extends this with <code>protected</code> and <code>password</code> for access control.
 </div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="lang">hero_section_config JSON</span>
+    <button class="copy-btn">Copy</button>
+  </div>
+  <pre>{
+  "hero_section": {
+    "enabled": true,
+    "heading": {
+      "text": "Empower and align your AI Exploration journey.",
+      "link": "",
+      "link_text": "",
+      "append_text": ""
+    },
+    "subheading": {
+      "text": "The embedded AI Exploration & decision ecosystem to ALIGN teams",
+      "link": "",
+      "link_text": "",
+      "append_text": ""
+    }
+  }
+}</pre>
+</div>
+<h4>hero_section — Field Reference</h4>
+<table class="param-table">
+  <tr>
+    <th>Key</th>
+    <th>Sub-fields</th>
+    <th>Default</th>
+    <th>UI Effect</th>
+  </tr>
+  <tr>
+    <td><span class="param-name">hero_section</span></td>
+    <td><code>enabled</code> (bool)</td>
+    <td><code>enabled: true</code></td>
+    <td>Controls visibility of the entire hero section</td>
+  </tr>
+  <tr>
+    <td><span class="param-name">heading</span></td>
+    <td>
+      <code>text</code> (string), 
+      <code>link</code> (string), 
+      <code>link_text</code> (string), 
+      <code>append_text</code> (string)
+    </td>
+    <td>
+      <code>text: "Empower and align your AI Exploration journey."</code><br>
+      <code>link: ""</code><br>
+      <code>link_text: ""</code><br>
+      <code>append_text: ""</code>
+    </td>
+    <td>
+      Displays the main heading text. Optional link and appended text can be added for CTA or inline highlighting.
+    </td>
+  </tr>
+  <tr>
+    <td><span class="param-name">subheading</span></td>
+    <td>
+      <code>text</code> (string), 
+      <code>link</code> (string), 
+      <code>link_text</code> (string), 
+      <code>append_text</code> (string)
+    </td>
+    <td>
+      <code>text: "The embedded AI Exploration & decision ecosystem to ALIGN teams"</code><br>
+      <code>link: ""</code><br>
+      <code>link_text: ""</code><br>
+      <code>append_text: ""</code>
+    </td>
+    <td>
+      Displays supporting subheading text below the main heading. Can include optional link or highlighted appended text.
+    </td>
+  </tr>
+</table>
+<div class="code-block">
+  <div class="code-header">
+    <span class="lang">cta_steps_config JSON</span>
+    <button class="copy-btn">Copy</button>
+  </div>
+  <pre>{
+  "cta_steps": {
+    "enabled": true,
+    "items": [
+      "Explore ➡️",
+    ]
+  }
+}</pre>
+</div>
+<div class="code-block">
+  <div class="code-header">
+    <span class="lang">card_action_controls JSON</span>
+    <button class="copy-btn">Copy</button>
+  </div>
+  <pre>{
+  "card_actions": {
+    "description": {
+      "show": true,
+      "label": "Align"
+    },
+    "report": {
+      "show": true,
+      "label": "Report"
+    },
+    "audio_button": {
+      "show": false,
+      "label": ""
+    },
+    "like_button": {
+      "show": false,
+      "label": ""
+    }
+  }
+}</pre>
+</div>
+<h4>card_actions — Field Reference</h4>
+<table class="param-table">
+  <tr>
+    <th>Key</th>
+    <th>Sub-fields</th>
+    <th>Default</th>
+    <th>UI Effect</th>
+  </tr>
+  <tr>
+    <td><span class="param-name">description</span></td>
+    <td><code>show</code> (bool), <code>label</code> (string)</td>
+    <td><code>show: true</code><br><code>label: "Align"</code></td>
+    <td>Shows/hides the description action (e.g., Align button) on the card</td>
+  </tr>
+  <tr>
+    <td><span class="param-name">report</span></td>
+    <td><code>show</code> (bool), <code>label</code> (string)</td>
+    <td><code>show: true</code><br><code>label: "Report"</code></td>
+    <td>Shows/hides the report action button on the card</td>
+  </tr>
+  <tr>
+    <td><span class="param-name">audio_button</span></td>
+    <td><code>show</code> (bool), <code>label</code> (string)</td>
+    <td><code>show: false</code><br><code>label: ""</code></td>
+    <td>Shows/hides the audio playback button for the card content</td>
+  </tr>
+  <tr>
+    <td><span class="param-name">like_button</span></td>
+    <td><code>show</code> (bool), <code>label</code> (string)</td>
+    <td><code>show: false</code><br><code>label: ""</code></td>
+    <td>Shows/hides the like/thumbs-up button for user interaction</td>
+  </tr>
+</table>
 
           <h2 id="dj-courses">Course & Package Setup</h2>
           <p>
