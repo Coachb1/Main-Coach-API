@@ -67,4 +67,11 @@ class ClientUserInfoForm(forms.ModelForm):
         widgets = {
             'company_information': UniversalSchemaWidget(COMPANY_INFO_SCHEMA)
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tenant_id = cleaned_data.get('tenant_id')
+        if not tenant_id:
+            raise forms.ValidationError("Tenant is required.")
+        return cleaned_data
                

@@ -175,7 +175,7 @@ class ClientResourceAdmin(admin.ModelAdmin):
 def is_superadmin(user):
         return user.is_superuser or user.groups.filter(name="Platform Admin").exists()
 
-class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
+class ClientUserInfoAdmin(TenantAwareModelAdmin):
     """
     ClientUserInfo is the SINGLE SOURCE OF TRUTH for:
     - User access
@@ -332,6 +332,13 @@ class ClientUserInfoAdmin(AdminChangePreviewMixin, TenantAwareModelAdmin):
                     "restricted_ids",
                     "demo_ids",
                     "make_new_user_in_trail"
+                )
+            }),
+            ("🔗 Assigned Resources", {
+                "fields": (
+                    "assigned_tests",
+                    "assigned_bots",
+                    "collections",
                 )
             }),
             ("🧠 Bot Creation Permissions", {
