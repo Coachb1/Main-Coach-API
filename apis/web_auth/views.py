@@ -2,10 +2,10 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apis.web_auth.serializers import LoginSerializer
+from apis.web_auth.serializers import LoginSerializer, PasswordResetSerializer
 from commons.viewset import ApiViewSet
 from tenants.helpers import tenant_from_subdomain_prefix
-from users.helpers import login_user, logout_user, update_user_account
+from users.helpers import login_user, logout_user, update_user_account, reset_password_with_secret_code
 from apis.frontend_api.serializers import FrontendAccessTokenSerializer
 from users.models import User
 from web_auth.helpers import get_new_access_token
@@ -103,6 +103,51 @@ class WebAuthViewSet(ApiViewSet):
         data = {'access_token': access_token}
 
         return Response(data=data, status=status.HTTP_200_OK)
+
+    @action(methods=["POST"], detail=False, url_path="reset-password-secret")
+    def reset_password_with_secret_code_view(self, request, *args, **kwargs):
+        """
+        Handles password reset using secret code.
+        
+        Validates the reset password data and calls the reset_password_with_secret_code function
+        to reset the user's password using the secret code.
+        
+        Args:
+        - request: The HTTP request object with user_id, secret_code, and new_password.
+        - args: Additional positional arguments.
+        - kwargs: Additional keyword arguments.
+        
+        Returns:
+        - Response: The HTTP response object with success or error message.
+        """
+        serializer = PasswordResetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        
+        secret_code = serializer.validated_data["secret_code"]
+        new_password = serializer.validated_data["new_password"]
+
+        subdomain_prefix = serializer.validated_data["subdomain_prefix"]
+        identity_context = serializer.validated_data["identity_context"]
+
+        identity_type = identity_context["identity_type"]
+        identity_value = identity_context["value"]
+        
+        try:
+            result = reset_password_with_secret_code(
+                tenant=tenant_from_subdomain_prefix(subdomain_prefix),
+                identity_type=identity_type,
+                identity_value=identity_value,
+                secret_code=secret_code,
+                new_password=new_password
+            )
+            return Response(data=result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            logger.error(f"Password reset failed: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception(f"Unexpected error during password reset: {e}")
+            return Response({"error": "An error occurred during password reset"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(methods=["POST"], detail=False, url_path="reset-password")
     def reset_password_view(self, request, *args, **kwargs):
