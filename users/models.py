@@ -1,3 +1,4 @@
+import secrets
 from tabnanny import verbose
 from django.db import models
 
@@ -171,6 +172,7 @@ class User(TenantAwareModel):
     name = models.TextField(blank=True, null=True, default="")
     role = models.CharField(max_length=255, choices=UserRoleChoice)
     password = models.TextField(null=True)
+    secret_code = models.CharField(max_length=255, null=True, blank=True, help_text="to reset pw")
     is_root = models.BooleanField(null=True, default=None)
     is_excluded = models.BooleanField(null=True, default=False)
     is_repeat = models.BooleanField(default=None, null=True, blank=True)

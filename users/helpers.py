@@ -1,4 +1,6 @@
 import logging
+import secrets
+import string
 
 from django.contrib.auth.hashers import make_password, check_password
 
@@ -12,6 +14,19 @@ from web_auth.helpers import create_new_tokens, logout_entity
 import random
 
 logger = logging.getLogger(__name__)
+
+
+def generate_secret_code(length=16):
+    """Generate a random alphanumeric secret code for password reset.
+    
+    Args:
+        length (int): Length of the secret code to generate. Default is 16.
+    
+    Returns:
+        str: A random alphanumeric secret code.
+    """
+    characters = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
 
 
 def create_user(tenant: Tenant,
@@ -150,7 +165,65 @@ def login_user(tenant: Tenant,
 
     if auth_type == 'client_login':
         tokens["auth_type"] = auth_type
+    
+    # Generate and store secret code for new users with client auth
+    if new_user:
+        secret_code = generate_secret_code()
+        user.secret_code = secret_code
+        user.save(update_fields=['secret_code'])
+        tokens["secret_code"] = secret_code
+        logger.info(f"Generated secret code for new user: {user.uid}")
+
     return tokens
+
+
+def logout_user(user: User):
+    logout_entity(
+        entity_type="user",
+        entity_identifier_key="uid",
+        entity_identifier_value=user.uid
+    )
+
+
+def reset_password_with_secret_code(tenant: Tenant, identity_type:str, identity_value:str ,secret_code: str, new_password: str) -> dict:
+    """Reset user password using secret code.
+    
+    Args:
+        tenant (Tenant): Tenant object
+        identity_type (str): Identity type
+        identity_value (str): Identity value
+        secret_code (str): Secret code
+        new_password (str): New password
+       
+    
+    Returns:
+        dict: Response dictionary with success or error message
+    
+    Raises:
+        ValueError: If user not found or secret code is invalid
+    """
+    try:
+        user = get_user_via_identity(tenant, identity_type, identity_value)
+    except Exception as e:
+        logger.error(f"User not found")
+        raise ValueError("User not found")
+    
+    # Verify secret code
+    secret_codes = [sc.strip() for sc in user.secret_code.split(',') if sc.strip()] if user.secret_code else []
+    if secret_code not in secret_codes:
+        logger.error(f"Invalid secret code for user")
+        raise ValueError("Invalid secret code")
+    
+    try:
+        # Update password
+        user.password = make_password(new_password)
+        user.save(update_fields=['password'])
+        
+        logger.info(f"Password reset successfully for user")
+        return {"success": "Password reset successfully"}
+    except Exception as e:
+        logger.exception(f"Error resetting password for user: {e}")
+        raise ValueError("Error resetting password")
 
 
 def logout_user(user: User):
