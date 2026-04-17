@@ -2,6 +2,8 @@ import html
 import json
 import re
 
+from users.models import ClientUserInfo
+
 def extract_feedback_block(text: str) -> dict:
     """
     Extracts feedback components: status, message (if NOT ACCEPTABLE), and suggestions.
@@ -321,3 +323,84 @@ def format_qna_body(jobaid, session):
     </div>
     """
     return body
+
+def build_dummy_jobaid_response(jobaid, client_id=None):
+    DEFAULT_PLACEHOLDER = "Generating..."
+
+    # ---------- BUCKETS ----------
+    normal_qna = []
+    innovation_score_qna = []
+    editable_qna = []
+    resource_qna = []
+
+    # ---------- CLIENT RESOURCES ----------
+    client_resources = []
+    if client_id:
+        client = ClientUserInfo.objects.filter(
+            deleted=False,
+            uid=client_id
+        ).first()
+
+        if client:
+            client_resources = list(
+                client.resources
+                    .filter(is_active=True)
+                    .order_by("order")
+                    .values("label", "url", "info")
+            )
+
+    # ---------- JOB QUESTIONS ----------
+    for q in jobaid.questions.all().order_by("id"):
+
+        question_data = {
+            "question": q.question,
+            "answer": DEFAULT_PLACEHOLDER,
+            "question_type": q.question_type,
+            "attachments": []
+        }
+
+        # bucket routing (same as serializer)
+        if q.question == "Innovation Score":
+            innovation_score_qna.append(question_data)
+
+        elif q.question_type == "editable":
+            editable_qna.append(question_data)
+
+        else:
+            normal_qna.append(question_data)
+
+    # ---------- RESOURCES (EMPTY for dummy session) ----------
+    # keeping same structure (only client resources will show separately)
+
+    # ---------- FINAL ORDER ----------
+    ordered_qna = [
+        *normal_qna,
+        *innovation_score_qna,
+        *resource_qna,
+        *editable_qna,
+    ]
+
+    ordered_qna = [
+        {
+            **item,
+            "question_id": index,
+        }
+        for index, item in enumerate(ordered_qna, start=1)
+    ]
+
+    # ---------- FORMAT CLIENT RESOURCES ----------
+    client_resources = [
+        {
+            "question": resource["label"],
+            "answer": resource["url"],
+            "question_type": "resource",
+            "info": resource.get("info", "")
+        }
+        for resource in client_resources
+    ]
+
+    return {
+        "ordered_qna": ordered_qna,
+        "client_resources": client_resources,
+        "is_generating": True
+    }
