@@ -232,6 +232,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
         "assigned_tests",
         "assigned_bots",
         "collections",
+        "resources"
     )
 
     # ------------------------------------------------------------------------
@@ -339,6 +340,7 @@ class ClientUserInfoAdmin(TenantAwareModelAdmin):
                     "assigned_tests",
                     "assigned_bots",
                     "collections",
+                    "resources"
                 )
             }),
             ("🧠 Bot Creation Permissions", {
