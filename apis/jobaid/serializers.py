@@ -122,8 +122,9 @@ class JobAidSessionSerializer(serializers.ModelSerializer):
                 "answer": ans_text,
                 "question_type": "other",
             }
-            if q_text == "Innovation Score":
-                lables = jobaid.labels.get("innovation_score") if jobaid.labels  else None
+            lables = jobaid.labels.get("innovation_score") if jobaid.labels  else None
+            show_innovation = lables.get("show", True) if lables and isinstance(lables, dict) else False
+            if show_innovation and q_text == "Innovation Score":
                 if lables and isinstance(lables, dict):
                     que_data['question'] = lables.get("label", "Align Priority")
                     que_data['info'] = lables.get("info", "")

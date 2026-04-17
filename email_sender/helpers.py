@@ -29,41 +29,44 @@ logger = logging.getLogger(__name__)
 
 def send_email_from_emailit(receiver_email, subject, body, attachment_path=None):
     # Email details
-    sender_email = "mail@coachbots.com"  # actual email address (not the display name)
-    display_name = "Coach Bot"
-    password = "em_smtp_1Pe2EoMFxmatBWlVTTVBHEo3YDwzxxH9"
-    # Set up the MIME
-    message = MIMEMultipart()
-    message["From"] = f"{display_name} <{sender_email}>"
-    message["To"] = receiver_email
-    message["Subject"] = subject
-
-    # Attach the email body (HTML)
-    message.attach(MIMEText(body, "html"))
-
-    # Optional: Add attachment
-    if attachment_path and os.path.isfile(attachment_path):
-        try:
-            with open(attachment_path, "rb") as file:
-                part = MIMEApplication(file.read(), Name=os.path.basename(attachment_path))
-                part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment_path)}"'
-                message.attach(part)
-        except Exception as e:
-            logger.exception(f"Error attaching file: {e}")
-            raise e
-
-    # Send email
     try:
-        with smtplib.SMTP("smtp.emailit.com", 587) as server:
-            server.starttls()
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
-            logger.info("✅ Email sent successfully!")
+        sender_email = "mail@aiadopts.online"  # actual email address (not the display name)
+        display_name = "AI adopts"
+        password = "secret_RIQD7FPqAyac3INRGWcux57RmjKviHIk"
+        # Set up the MIME
+        message = MIMEMultipart()
+        message["From"] = f"{display_name} <{sender_email}>"
+        message["To"] = receiver_email
+        message["Subject"] = subject
 
+        # Attach the email body (HTML)
+        message.attach(MIMEText(body, "html"))
+
+        # Optional: Add attachment
+        if attachment_path and os.path.isfile(attachment_path):
+            try:
+                with open(attachment_path, "rb") as file:
+                    part = MIMEApplication(file.read(), Name=os.path.basename(attachment_path))
+                    part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment_path)}"'
+                    message.attach(part)
+            except Exception as e:
+                logger.exception(f"Error attaching file: {e}")
+                raise e
+
+        # Send email
+        try:
+            with smtplib.SMTP("smtp.emailit.com", 587) as server:
+                server.starttls()
+                server.login(sender_email, password)
+                server.sendmail(sender_email, receiver_email, message.as_string())
+                logger.info("✅ Email sent successfully!")
+
+        except Exception as e:
+            logger.exception(f"Email sending failed: {e}")
+            raise e
     except Exception as e:
-        logger.exception(f"Email sending failed: {e}")
-        raise e
-
+        logger.exception(f"Unexpected error in send_email_from_emailit: {e}")
+         
 
 LOGIN_EMAIL = "deb@coachbots.com"
 FROM_EMAIL = "mail@coachbots.com"

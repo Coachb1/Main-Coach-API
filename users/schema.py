@@ -133,7 +133,17 @@ FEATURE_BUTTON_SCHEMA = {
                 'show': {'type': 'boolean', 'label': 'Show', 'default': True},
                 'label': {'type': 'string', 'label': 'Label', 'default': 'Transform IQ'}
             }
-        }
+        },
+        'static_button': {
+            'type': 'object',
+            'label': 'Static Button',
+            'properties': {
+                'show': {'type': 'boolean', 'label': 'Show', 'default': False},
+                'label': {'type': 'string', 'label': 'Label', 'default': 'Static Report'},
+                'link': {'type': 'string', 'label': 'Link', 'default': ''},
+                'header': {'type': 'string', 'label': 'Header', 'default': 'heading'}
+            }
+        },
     }
 }
 

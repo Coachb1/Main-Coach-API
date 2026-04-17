@@ -15,7 +15,7 @@ from commons.utils import generic_completion
 from commons.viewset import ApiViewSet
 from documents.helpers import get_url
 from email_sender.helpers import send_email_from_emailit, send_emailv2
-from jobaid.helpers import extract_feedback_block, format_qna_body
+from jobaid.helpers import build_dummy_jobaid_response, extract_feedback_block, format_qna_body
 from jobaid.models import JobAid, JobAidQuestion, JobAidSession
 
 
@@ -246,11 +246,11 @@ class JobAidViewSet(ApiViewSet,
                 session.save(update_fields=['report_url'])
 
             # ✅ Send email to admin
-            send_email_from_emailit(
-                receiver_email="mail@coachbots.com",
-                subject=f"Job Aid - {jobaid.title}",
-                body=format_qna_body(jobaid, session),
-            )
+            # send_email_from_emailit(
+            #     receiver_email="mail@coachbots.com",
+            #     subject=f"Job Aid - {jobaid.title}",
+            #     body=format_qna_body(jobaid, session),
+            # )
 
             return Response(
                 {
@@ -378,11 +378,20 @@ class JobAidViewSet(ApiViewSet,
             jobaid_sessions = JobAidSession.objects.filter(deleted=False, job_aid=jobaid).order_by('-like_count')
             if client_id:
                 jobaid_sessions = jobaid_sessions.filter(client_id=client_id)
-            serializer = JobAidSessionSerializer(jobaid_sessions, many=True)
+
+            session_data = None
+            if jobaid_sessions.count() > 0:
+                session_data = JobAidSessionSerializer(jobaid_sessions, many=True).data
+
+            else:
+                session_data = [build_dummy_jobaid_response(
+                    jobaid, client_id=client_id
+                )]
+
 
             data = {
                 "session_voting_enabled": jobaid.session_voting_enabled,
-                "sessions": serializer.data
+                "sessions": session_data
             }
             return Response(data, status=status.HTTP_200_OK)
 
