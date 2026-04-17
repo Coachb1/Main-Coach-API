@@ -15,6 +15,12 @@ LABELS_SCHEMA = {
                     'type': 'string',
                     'label': 'Info',
                     'help_text': 'Additional information or tooltip content for this label'
+                },
+                'show': {
+                    'type': 'boolean',
+                    'label': 'Show',
+                    'help_text': 'Whether to display this field in the log&redar table',
+                    'default': True
                 }
             }
         }
