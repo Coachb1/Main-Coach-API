@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "coaching_conversations.apps.CoachingConversationsConfig",
     "skills.apps.SkillsConfig",
     "web_auth.apps.WebAuthConfig",
+    "sso.apps.SsoConfig",
     "url_shortener.apps.UrlShortenerConfig",
     "email_sender.apps.EmailSenderConfig",
     "corsheaders",
